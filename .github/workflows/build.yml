@@ -51,6 +51,7 @@ jobs:
           msbuild app\VLC.Universal\VLC.Universal.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
+            /p:PlatformToolset=v143 `
             /p:TargetPlatformVersion="$env:UAP_SDK_VERSION" `
             /p:AppxBundle=Always `
             /p:AppxBundlePlatforms="x64" `

@@ -491,7 +491,7 @@
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libkaraoke_plugin.dll">
       <Link>plugins\audio_filter\libkaraoke_plugin.dll</Link>
     </Content>
-    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libmad_plugin.dll" Condition="$(Platform) != 'ARM'">
+    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libmad_plugin.dll" Condition="Exists('..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libmad_plugin.dll') And $(Platform) != 'ARM'">
       <Link>plugins\audio_filter\libmad_plugin.dll</Link>
     </Content>
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libmono_plugin.dll">
@@ -506,7 +506,7 @@
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libremap_plugin.dll">
       <Link>plugins\audio_filter\libremap_plugin.dll</Link>
     </Content>
-    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libsamplerate_plugin.dll">
+    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libsamplerate_plugin.dll" Condition="Exists('..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libsamplerate_plugin.dll')">
       <Link>plugins\audio_filter\libsamplerate_plugin.dll</Link>
     </Content>
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\audio_filter\libscaletempo_pitch_plugin.dll">
@@ -587,7 +587,7 @@
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\codec\libdav1d_plugin.dll">
       <Link>plugins\codec\libdav1d_plugin.dll</Link>
     </Content>
-    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\codec\libdca_plugin.dll">
+    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\codec\libdca_plugin.dll" Condition="Exists('..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\codec\libdca_plugin.dll')">
       <Link>plugins\codec\libdca_plugin.dll</Link>
     </Content>
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\codec\libddummy_plugin.dll">
@@ -815,7 +815,7 @@
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\demux\libreal_plugin.dll">
       <Link>plugins\demux\libreal_plugin.dll</Link>
     </Content>
-    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\demux\libsid_plugin.dll">
+    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\demux\libsid_plugin.dll" Condition="Exists('..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\demux\libsid_plugin.dll')">
       <Link>plugins\demux\libsid_plugin.dll</Link>
     </Content>
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\demux\libsmf_plugin.dll">
@@ -1232,7 +1232,7 @@
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\video_filter\libposterize_plugin.dll">
       <Link>plugins\video_filter\libposterize_plugin.dll</Link>
     </Content>
-    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\video_filter\libpostproc_plugin.dll" Condition="$(Platform) != 'ARM'">
+    <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\video_filter\libpostproc_plugin.dll" Condition="Exists('..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\video_filter\libpostproc_plugin.dll') And $(Platform) != 'ARM'">
       <Link>plugins\video_filter\libpostproc_plugin.dll</Link>
     </Content>
     <Content Include="..\..\libvlc\Universal\vlc-$(TargetedSDKArchitecture)\$(Configuration)\plugins\video_filter\libpsychedelic_plugin.dll">
@@ -1301,13 +1301,13 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <SDKReference Include="SQLite.UWP.2015, Version=3.32.3">
+    <SDKReference Include="SQLite.UWP.2015, Version=3.32.3" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\SQLite.UWP.2015\3.32.3')">
       <Name>SQLite for Universal Windows Platform</Name>
     </SDKReference>
-    <SDKReference Include="WindowsDesktop, Version=10.0.16299.0">
+    <SDKReference Include="WindowsDesktop, Version=$(TargetPlatformVersion)" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\WindowsDesktop\$(TargetPlatformVersion)')">
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
-    <SDKReference Include="WindowsMobile, Version=10.0.16299.0">
+    <SDKReference Include="WindowsMobile, Version=$(TargetPlatformVersion)" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\WindowsMobile\$(TargetPlatformVersion)')">
       <Name>Windows Mobile Extensions for the UWP</Name>
     </SDKReference>
   </ItemGroup>

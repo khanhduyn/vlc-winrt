@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-uwp:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout repository
@@ -23,6 +23,23 @@ jobs:
       - name: Setup NuGet
         uses: nuget/setup-nuget@v2
 
+      - name: Stage LibVLC binaries
+        shell: powershell
+        run: |
+          nuget install VideoLAN.LibVLC.UWP -Version 3.3.2 -ExcludeVersion -OutputDirectory tools
+          $targetDir = "libvlc\Universal\vlc-amd64\Release"
+          New-Item -ItemType Directory -Force -Path $targetDir
+          New-Item -ItemType Directory -Force -Path "$targetDir\include"
+
+          $src = "tools\VideoLAN.LibVLC.UWP\build\win10-x64"
+          Copy-Item "$src\libvlc.dll" "$targetDir\"
+          Copy-Item "$src\libvlccore.dll" "$targetDir\"
+          Copy-Item -Recurse -Force "$src\plugins" "$targetDir\"
+          Copy-Item -Recurse -Force "$src\sdk\include\*" "$targetDir\include\"
+          Copy-Item "$src\sdk\lib\libvlc.lib" "$targetDir\"
+          Copy-Item "$src\sdk\lib\libvlccore.lib" "$targetDir\"
+          New-Item -ItemType Directory -Force -Path "$targetDir\plugins\access"
+
       - name: Detect latest Windows UAP SDK
         shell: powershell
         run: |
@@ -34,7 +51,7 @@ jobs:
       - name: Generate temporary signing certificate
         shell: powershell
         run: |
-          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=XboxDevMode" -KeyUsage DigitalSignature -FriendlyName "XboxDevMode Test Cert" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=716F2E5E-A03A-486B-BC67-9B18474B9D51" -KeyUsage DigitalSignature -FriendlyName "VLC Test Cert" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
           $password = ConvertTo-SecureString -String "Passw0rd123!" -Force -AsPlainText
           $pfxPath = "$env:GITHUB_WORKSPACE\app\VLC.Universal\VLC_WinRT.Universal_TemporaryKey.pfx"
           Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
@@ -53,6 +70,7 @@ jobs:
             /p:Platform=x64 `
             /p:PlatformToolset=v143 `
             /p:TargetPlatformVersion="$env:UAP_SDK_VERSION" `
+            /p:WindowsTargetPlatformVersion="$env:UAP_SDK_VERSION" `
             /p:AppxBundle=Always `
             /p:AppxBundlePlatforms="x64" `
             /p:UapAppxPackageBuildMode=SideloadOnly `

@@ -60,7 +60,7 @@ jobs:
       - name: Restore NuGet packages
         shell: powershell
         run: |
-          nuget restore build\VLC.sln
+          msbuild app\VLC.Universal\VLC.Universal.csproj /t:Restore /p:Configuration=Release /p:Platform=x64 /p:TargetPlatformVersion="$env:UAP_SDK_VERSION"
 
       - name: Build UWP Sideload Package (x64 Release)
         shell: powershell

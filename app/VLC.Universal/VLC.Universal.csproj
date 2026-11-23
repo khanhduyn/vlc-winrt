@@ -20,6 +20,7 @@
     <PackageCertificateKeyFile>VLC_WinRT.Universal_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxBundleAutoResourcePackageQualifiers>Scale|DXFeatureLevel</AppxBundleAutoResourcePackageQualifiers>
     <AppxDefaultResourceQualifiers>Language=ar-SA;cs-CZ;da-DK;de-DE;en-US;es-ES;fr-FR;he-IL;hu-HU;is-IS;it-IT;ja-JP;ko-KR;ms-MY;nb-NO;nl-NL;pl-PL;pt-BR;pt-PT;ro-RO;ru-RU;sk-SK;sv-SE;tr-TR;uk-UA;zh-CN</AppxDefaultResourceQualifiers>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
     <DebugSymbols>true</DebugSymbols>
@@ -99,8 +100,22 @@
     <MultilingualFallbackLanguage>en-US</MultilingualFallbackLanguage>
   </PropertyGroup>
   <ItemGroup>
-    <!-- A reference to the entire .Net Framework and Windows SDK are automatically included -->
-    <None Include="project.json" />
+    <PackageReference Include="Autofac" Version="4.6.2" />
+    <PackageReference Include="Inflatable.Lastfm" Version="1.0.1.307" />
+    <PackageReference Include="Microsoft.Net.Http" Version="2.2.29" />
+    <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.0.6" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.UI" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.UI.Animations" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.UI.Controls" Version="2.1.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+    <PackageReference Include="NotificationsExtensions.Win10" Version="14332.0.2" />
+    <PackageReference Include="ScrollWatcher" Version="1.0.5" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.4.118" />
+    <PackageReference Include="System.ValueTuple" Version="4.4.0" />
+    <PackageReference Include="Win2D.uwp" Version="1.21.0" />
+    <PackageReference Include="WinRTTriggers" Version="1.6.0" />
+    <PackageReference Include="WinRTXamlToolkit" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Devices;
 using Windows.Storage;
@@ -24,7 +25,7 @@ namespace VLC.ScriptPlayer.Playback
         private readonly CoreDispatcher _uiDispatcher;
         private readonly List<string> _accessTokens = new List<string>();
 
-        private int _mediaGeneration = 0;
+        private volatile int _mediaGeneration = 0;
         private bool _mediaOpenedFiredForCurrent = false;
 
         public MediaItem CurrentMedia { get; private set; }
@@ -122,7 +123,7 @@ namespace VLC.ScriptPlayer.Playback
         {
             if (item == null) return;
 
-            _mediaGeneration++;
+            Interlocked.Increment(ref _mediaGeneration);
             _mediaOpenedFiredForCurrent = false;
 
             CurrentMedia = item;
@@ -194,6 +195,11 @@ namespace VLC.ScriptPlayer.Playback
             int vol = (int)Math.Round(Math.Max(0.0, Math.Min(1.0, item.Volume)) * 100);
             _mediaPlayer.setVolume(vol);
 
+            if (!_positionTimer.IsEnabled)
+            {
+                _positionTimer.Start();
+            }
+
             _mediaPlayer.play();
         }
 
@@ -238,7 +244,7 @@ namespace VLC.ScriptPlayer.Playback
 
         public void Stop()
         {
-            _mediaGeneration++;
+            Interlocked.Increment(ref _mediaGeneration);
             _positionTimer.Stop();
             if (_mediaPlayer != null)
             {

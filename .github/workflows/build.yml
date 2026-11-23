@@ -1,0 +1,67 @@
+name: Build VLC WinRT UWP (x64)
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-uwp:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Detect latest Windows UAP SDK
+        shell: powershell
+        run: |
+          $uapRoot = "C:\Program Files (x86)\Windows Kits\10\Platforms\UAP"
+          $sdkVersion = (Get-ChildItem -Directory $uapRoot | Sort-Object Name -Descending | Select-Object -First 1).Name
+          Write-Host "Detected UAP SDK: $sdkVersion"
+          "UAP_SDK_VERSION=$sdkVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Generate temporary signing certificate
+        shell: powershell
+        run: |
+          $cert = New-SelfSignedCertificate -Type Custom -Subject "CN=XboxDevMode" -KeyUsage DigitalSignature -FriendlyName "XboxDevMode Test Cert" -CertStoreLocation "Cert:\CurrentUser\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $password = ConvertTo-SecureString -String "Passw0rd123!" -Force -AsPlainText
+          $pfxPath = "$env:GITHUB_WORKSPACE\app\VLC.Universal\VLC_WinRT.Universal_TemporaryKey.pfx"
+          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password
+          Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" -Password $password
+
+      - name: Restore NuGet packages
+        shell: powershell
+        run: |
+          nuget restore build\VLC.sln
+
+      - name: Build UWP Sideload Package (x64 Release)
+        shell: powershell
+        run: |
+          msbuild app\VLC.Universal\VLC.Universal.csproj `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:TargetPlatformVersion="$env:UAP_SDK_VERSION" `
+            /p:AppxBundle=Always `
+            /p:AppxBundlePlatforms="x64" `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile="VLC_WinRT.Universal_TemporaryKey.pfx" `
+            /p:PackageCertificatePassword="Passw0rd123!" `
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\AppPackages\"
+
+      - name: Upload AppPackages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VLC-WinRT-x64-AppPackages
+          path: AppPackages/

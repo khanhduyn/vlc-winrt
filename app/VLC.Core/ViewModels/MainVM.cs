@@ -84,7 +84,8 @@ namespace VLC.ViewModels
                 if (Locator.NavigationService.CurrentPage == VLCPage.CurrentPlaylistPage ||
                        Locator.NavigationService.CurrentPage == VLCPage.MusicPlayerPage ||
                        Locator.NavigationService.CurrentPage == VLCPage.VideoPlayerPage ||
-                       Locator.NavigationService.CurrentPage == VLCPage.MiniPlayerView)
+                       Locator.NavigationService.CurrentPage == VLCPage.MiniPlayerView ||
+                       Locator.NavigationService.CurrentPage == VLCPage.ScriptPlayerPage)
                     return AppBarClosedDisplayMode.Hidden;
                 return Locator.MediaPlaybackViewModel.MiniPlayerVisibility == Visibility.Visible ?
                     AppBarClosedDisplayMode.Compact : AppBarClosedDisplayMode.Minimal;
@@ -107,6 +108,7 @@ namespace VLC.ViewModels
             Panels.Add(new Panel(Strings.Music, VLCPage.MainPageMusic, App.Current.Resources["WaveSymbol"].ToString(), App.Current.Resources["WaveFilledSymbol"].ToString()));
             Panels.Add(new Panel(Strings.FileExplorer, VLCPage.MainPageFileExplorer, App.Current.Resources["FileExplorerSymbol"].ToString(), App.Current.Resources["FileExplorerFilledSymbol"].ToString()));
             Panels.Add(new Panel(Strings.Network, VLCPage.MainPageNetwork, App.Current.Resources["StreamSymbol"].ToString(), App.Current.Resources["StreamFilledSymbol"].ToString()));
+            Panels.Add(new Panel("Script Player", VLCPage.ScriptPlayerPage, "\uE768", "\uE768"));
 
             CoreWindow.GetForCurrentThread().Activated += ApplicationState_Activated;
 

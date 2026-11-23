@@ -81,6 +81,11 @@ namespace VLC
             {
                 Locator.PlaybackService.Pause();
             }
+
+            if (Locator.NavigationService.CurrentPage == VLC.Model.VLCPage.ScriptPlayerPage)
+            {
+                VLC.UI.Views.ScriptPlayer.ScriptPlayerPage.CurrentInstance?.Pause();
+            }
         }
 
         public static Frame ApplicationFrame => RootPage?.NavigationFrame;

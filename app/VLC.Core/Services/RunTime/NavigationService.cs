@@ -26,6 +26,7 @@ using VLC.UI.VariousPages;
 using VLC.UI.Views.SettingsPages;
 using VLC.UI.UWP.Views.VariousPages;
 using VLC.UI.Views;
+using VLC.UI.Views.ScriptPlayer;
 
 namespace VLC.Services.RunTime
 {
@@ -126,6 +127,13 @@ namespace VLC.Services.RunTime
             switch (CurrentPage)
             {
                 case VLCPage.None:
+                    break;
+                case VLCPage.ScriptPlayerPage:
+                    if (ScriptPlayerPage.CurrentInstance != null && ScriptPlayerPage.CurrentInstance.HandleBackPressed())
+                    {
+                        return true;
+                    }
+                    GoBack_Default();
                     break;
                 case VLCPage.MainPageXBOX:
                     GoBack_HideFlyout();
@@ -343,6 +351,9 @@ namespace VLC.Services.RunTime
                 case VLCPage.VideoPlayerPage:
                     App.ApplicationFrame.Navigate(typeof(VideoPlayerPage));
                     break;
+                case VLCPage.ScriptPlayerPage:
+                    App.ApplicationFrame.Navigate(typeof(ScriptPlayerPage), param);
+                    break;
                 case VLCPage.MusicPlayerPage:
                     App.ApplicationFrame.Navigate(typeof(MusicPlayerPage));
                     break;
@@ -475,6 +486,8 @@ namespace VLC.Services.RunTime
                 return VLCPage.TrackEditorPage;
             if (page == typeof(MiniPlayerWindow))
                 return VLCPage.MiniPlayerView;
+            if (page == typeof(ScriptPlayerPage))
+                return VLCPage.ScriptPlayerPage;
             return VLCPage.None;
         }
 
@@ -492,7 +505,8 @@ namespace VLC.Services.RunTime
         }
 
         public bool IsCurrentPageAPlayerPage => CurrentPage == VLCPage.VideoPlayerPage 
-                                                || CurrentPage == VLCPage.MusicPlayerPage;
+                                                || CurrentPage == VLCPage.MusicPlayerPage
+                                                || CurrentPage == VLCPage.ScriptPlayerPage;
 
         public void CloseVideoFlyouts()
         {

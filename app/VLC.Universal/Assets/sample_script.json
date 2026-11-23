@@ -1,0 +1,412 @@
+{
+  "version": "1.0.0",
+  "title": "Operation DevMode: Interactive Xbox Adventure",
+  "initialState": "MainMenu",
+  "variables": {
+    "score": 0,
+    "lives": 3,
+    "routeChosen": "none",
+    "qteSuccess": false
+  },
+  "media": {
+    "menu_loop": {
+      "id": "menu_loop",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "loop": true,
+      "volume": 0.8
+    },
+    "intro_scene": {
+      "id": "intro_scene",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "loop": false,
+      "startMs": 0,
+      "endMs": 15000,
+      "volume": 1.0
+    },
+    "stealth_path": {
+      "id": "stealth_path",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+      "loop": false,
+      "startMs": 10000,
+      "endMs": 25000,
+      "volume": 1.0
+    },
+    "assault_path": {
+      "id": "assault_path",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+      "loop": false,
+      "startMs": 12000,
+      "endMs": 28000,
+      "volume": 1.0
+    },
+    "victory_scene": {
+      "id": "victory_scene",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+      "loop": false,
+      "startMs": 20000,
+      "endMs": 35000,
+      "volume": 1.0
+    },
+    "gameover_scene": {
+      "id": "gameover_scene",
+      "uri": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
+      "loop": false,
+      "startMs": 0,
+      "endMs": 10000,
+      "volume": 1.0
+    }
+  },
+  "cues": [
+    {
+      "id": "cue_intro_briefing",
+      "mediaId": "intro_scene",
+      "timeMs": 4000,
+      "payload": "Approaching compound"
+    },
+    {
+      "id": "cue_intro_decision",
+      "mediaId": "intro_scene",
+      "timeMs": 11000,
+      "payload": "Route bifurcation reached"
+    },
+    {
+      "id": "cue_stealth_qte_window",
+      "mediaId": "stealth_path",
+      "timeMs": 17000,
+      "payload": "Laser grid detected"
+    }
+  ],
+  "states": {
+    "MainMenu": {
+      "name": "MainMenu",
+      "description": "Attract loop waiting for player to begin mission",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "menu_loop" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "OPERATON DEVMODE — Press [A] to Start Mission",
+            "durationSec": 0
+          }
+        }
+      ],
+      "onExit": [
+        {
+          "type": "hudPrompt",
+          "params": { "text": "", "durationSec": 0 }
+        }
+      ],
+      "rules": [
+        {
+          "event": "input:A",
+          "conditions": [],
+          "actions": [
+            { "type": "setVar", "params": { "var": "score", "val": 100 } }
+          ],
+          "nextState": "IntroBriefing"
+        }
+      ]
+    },
+
+    "IntroBriefing": {
+      "name": "IntroBriefing",
+      "description": "Intro cinematic establishing the infiltration objective",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "intro_scene" }
+        }
+      ],
+      "onExit": [],
+      "rules": [
+        {
+          "event": "cue:cue_intro_briefing",
+          "conditions": [],
+          "actions": [
+            {
+              "type": "hudPrompt",
+              "params": {
+                "text": "Infiltration Target in Sight...",
+                "durationSec": 3
+              }
+            }
+          ]
+        },
+        {
+          "event": "cue:cue_intro_decision",
+          "conditions": [],
+          "actions": [],
+          "nextState": "PathDecision"
+        },
+        {
+          "event": "media:ended",
+          "conditions": [],
+          "actions": [],
+          "nextState": "PathDecision"
+        }
+      ]
+    },
+
+    "PathDecision": {
+      "name": "PathDecision",
+      "description": "Branching decision: Press [A] for Stealth or [B] for Assault",
+      "onEnter": [
+        {
+          "type": "pause",
+          "params": {}
+        },
+        {
+          "type": "startTimer",
+          "params": { "timerId": "decisionTimeout", "durationMs": 8000 }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "CHOICE: Press [A] Infiltrate Vent (Stealth) | Press [B] Blast Door (Assault)",
+            "durationSec": 8
+          }
+        }
+      ],
+      "onExit": [
+        {
+          "type": "stopTimer",
+          "params": { "timerId": "decisionTimeout" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": { "text": "", "durationSec": 0 }
+        }
+      ],
+      "rules": [
+        {
+          "event": "input:A",
+          "conditions": [],
+          "actions": [
+            { "type": "setVar", "params": { "var": "routeChosen", "val": "stealth" } },
+            { "type": "incrementVar", "params": { "var": "score", "delta": 250 } }
+          ],
+          "nextState": "StealthInfiltration"
+        },
+        {
+          "event": "input:B",
+          "conditions": [],
+          "actions": [
+            { "type": "setVar", "params": { "var": "routeChosen", "val": "assault" } },
+            { "type": "incrementVar", "params": { "var": "score", "delta": 150 } }
+          ],
+          "nextState": "DirectAssault"
+        },
+        {
+          "event": "timer:decisionTimeout",
+          "conditions": [],
+          "actions": [
+            { "type": "setVar", "params": { "var": "routeChosen", "val": "timeout_assault" } }
+          ],
+          "nextState": "DirectAssault"
+        }
+      ]
+    },
+
+    "StealthInfiltration": {
+      "name": "StealthInfiltration",
+      "description": "Stealth route with active QTE timing window",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "stealth_path" }
+        },
+        {
+          "type": "setVar",
+          "params": { "var": "qteSuccess", "val": false }
+        }
+      ],
+      "onExit": [],
+      "rules": [
+        {
+          "event": "cue:cue_stealth_qte_window",
+          "conditions": [],
+          "actions": [],
+          "nextState": "QuickTimeEvent"
+        },
+        {
+          "event": "media:ended",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MissionVictory"
+        }
+      ]
+    },
+
+    "QuickTimeEvent": {
+      "name": "QuickTimeEvent",
+      "description": "Reflex test: Press [X] within 2.5 seconds to dodge laser grid",
+      "onEnter": [
+        {
+          "type": "startTimer",
+          "params": { "timerId": "qteWindow", "durationMs": 2500 }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "QUICK TIME EVENT: PRESS [X] TO DODGE!",
+            "durationSec": 3
+          }
+        }
+      ],
+      "onExit": [
+        {
+          "type": "stopTimer",
+          "params": { "timerId": "qteWindow" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": { "text": "", "durationSec": 0 }
+        }
+      ],
+      "rules": [
+        {
+          "event": "input:X",
+          "conditions": [],
+          "actions": [
+            { "type": "setVar", "params": { "var": "qteSuccess", "val": true } },
+            { "type": "incrementVar", "params": { "var": "score", "delta": 500 } },
+            { "type": "hudPrompt", "params": { "text": "DODGE SUCCESSFUL!", "durationSec": 2 } }
+          ],
+          "nextState": "MissionVictory"
+        },
+        {
+          "event": "timer:qteWindow",
+          "conditions": [],
+          "actions": [
+            { "type": "incrementVar", "params": { "var": "lives", "delta": -1 } },
+            { "type": "hudPrompt", "params": { "text": "DODGE FAILED! ALARM TRIGGERED!", "durationSec": 2 } }
+          ],
+          "nextState": "MissionFailure"
+        }
+      ]
+    },
+
+    "DirectAssault": {
+      "name": "DirectAssault",
+      "description": "High-octane assault route",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "assault_path" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "ASSAULT: Press [Y] to deploy countermeasures",
+            "durationSec": 5
+          }
+        }
+      ],
+      "onExit": [],
+      "rules": [
+        {
+          "event": "input:Y",
+          "conditions": [],
+          "actions": [
+            { "type": "incrementVar", "params": { "var": "score", "delta": 300 } },
+            { "type": "hudPrompt", "params": { "text": "Countermeasures deployed! +300 PTS", "durationSec": 2 } }
+          ]
+        },
+        {
+          "event": "media:ended",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MissionVictory"
+        }
+      ]
+    },
+
+    "MissionVictory": {
+      "name": "MissionVictory",
+      "description": "Celebration cinematic upon mission completion",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "victory_scene" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "MISSION ACCOMPLISHED! Press [A] to Replay",
+            "durationSec": 0
+          }
+        }
+      ],
+      "onExit": [
+        {
+          "type": "hudPrompt",
+          "params": { "text": "", "durationSec": 0 }
+        }
+      ],
+      "rules": [
+        {
+          "event": "input:A",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MainMenu"
+        },
+        {
+          "event": "media:ended",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MainMenu"
+        }
+      ]
+    },
+
+    "MissionFailure": {
+      "name": "MissionFailure",
+      "description": "Failure sequence when player runs out of time or lives",
+      "onEnter": [
+        {
+          "type": "play",
+          "params": { "mediaId": "gameover_scene" }
+        },
+        {
+          "type": "hudPrompt",
+          "params": {
+            "text": "MISSION FAILED! Press [A] to Retry",
+            "durationSec": 0
+          }
+        }
+      ],
+      "onExit": [
+        {
+          "type": "hudPrompt",
+          "params": { "text": "", "durationSec": 0 }
+        }
+      ],
+      "rules": [
+        {
+          "event": "input:A",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MainMenu"
+        },
+        {
+          "event": "media:ended",
+          "conditions": [],
+          "actions": [],
+          "nextState": "MainMenu"
+        }
+      ]
+    }
+  },
+  "globalRules": [
+    {
+      "event": "input:DPadDown",
+      "conditions": [],
+      "actions": [
+        { "type": "log", "params": { "text": "Quick checkpoint saved." } }
+      ]
+    }
+  ]
+}

@@ -30,5 +30,6 @@
         AboutAppView,
         MainPageXBOX,
         ExternalStorageInclude,
+        ScriptPlayerPage,
     }
 }

@@ -238,6 +238,15 @@
     <Compile Include="$(MSBuildThisFileDirectory)ViewModels\Settings\SettingsViewModel.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ViewModels\VideoVM\VideoLibraryVM.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ViewModels\VideoVM\VideoPlayerVM.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Models\ScriptConfig.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\IVideoController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\CuePointTracker.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\VlcVideoController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Storage\ScriptLoader.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\StateContext.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\RuleEvaluator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\ActionDispatcher.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\FsmEngine.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)Assets\NewStoreLogo.scale-100.png" />

@@ -334,6 +334,9 @@
     <Compile Include="Views\VideoPages\VideoPlayerPage.xaml.cs">
       <DependentUpon>VideoPlayerPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\ScriptPlayer\ScriptPlayerPage.xaml.cs">
+      <DependentUpon>ScriptPlayerPage.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -1299,6 +1302,9 @@
     <Content Include="VLCCommands.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Assets\sample_script.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="SQLite.UWP.2015, Version=3.32.3" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\SQLite.UWP.2015\3.32.3')">
@@ -1667,6 +1673,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\VideoPages\VideoPlayerPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\ScriptPlayer\ScriptPlayerPage.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

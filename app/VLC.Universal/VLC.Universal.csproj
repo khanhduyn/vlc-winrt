@@ -21,6 +21,7 @@
     <AppxBundleAutoResourcePackageQualifiers>Scale|DXFeatureLevel</AppxBundleAutoResourcePackageQualifiers>
     <AppxDefaultResourceQualifiers>Language=ar-SA;cs-CZ;da-DK;de-DE;en-US;es-ES;fr-FR;he-IL;hu-HU;is-IS;it-IT;ja-JP;ko-KR;ms-MY;nb-NO;nl-NL;pl-PL;pt-BR;pt-PT;ro-RO;ru-RU;sk-SK;sv-SE;tr-TR;uk-UA;zh-CN</AppxDefaultResourceQualifiers>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM'">
     <DebugSymbols>true</DebugSymbols>

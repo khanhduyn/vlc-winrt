@@ -65,6 +65,7 @@ jobs:
       - name: Build UWP Sideload Package (x64 Release)
         shell: powershell
         run: |
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\AppPackages"
           msbuild app\VLC.Universal\VLC.Universal.csproj `
             /p:Configuration=Release `
             /p:Platform=x64 `
@@ -77,7 +78,17 @@ jobs:
             /p:AppxPackageSigningEnabled=true `
             /p:PackageCertificateKeyFile="VLC_WinRT.Universal_TemporaryKey.pfx" `
             /p:PackageCertificatePassword="Passw0rd123!" `
-            /p:AppxPackageDir="$env:GITHUB_WORKSPACE\AppPackages\"
+            /p:AppxPackageDir="$env:GITHUB_WORKSPACE/AppPackages/" `
+            /v:normal `
+            /fl /flp:logfile=msbuild.log;verbosity=normal
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msbuild-log
+          path: msbuild.log
+          if-no-files-found: ignore
 
       - name: Upload AppPackages artifact
         uses: actions/upload-artifact@v4

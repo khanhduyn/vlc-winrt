@@ -52,11 +52,6 @@ namespace VLC.Services.RunTime
                 e.Handled = GoBack_Specific();
             };
 
-            if (ApiInformation.IsApiContractPresent("Windows.Phone.PhoneContract", 1, 0))
-            {
-                Windows.Phone.UI.Input.HardwareButtons.BackPressed += HardwareButtons_BackPressed;
-            }
-
             App.RootPage.NavigationFrame.Navigated += NavigationFrame_Navigated;
             HomePageNavigated += NavigationService_HomePageNavigated;
         }
@@ -109,11 +104,6 @@ namespace VLC.Services.RunTime
             if (!App.SplitShell.IsTopBarOpen)
                 App.SplitShell.ShowTopBar();
             ShowBackButtonIfCanGoBack();
-        }
-
-        private void HardwareButtons_BackPressed(object sender, Windows.Phone.UI.Input.BackPressedEventArgs e)
-        {
-            e.Handled = GoBack_Specific();
         }
 
         public void ShowBackButtonIfCanGoBack()

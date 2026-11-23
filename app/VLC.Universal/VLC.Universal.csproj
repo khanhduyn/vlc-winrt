@@ -1329,9 +1329,6 @@
     <SDKReference Include="WindowsDesktop, Version=$(TargetPlatformVersion)" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\WindowsDesktop\$(TargetPlatformVersion)')">
       <Name>Windows Desktop Extensions for the UWP</Name>
     </SDKReference>
-    <SDKReference Include="WindowsMobile, Version=$(TargetPlatformVersion)" Condition="Exists('$(MSBuildProgramFiles32)\Windows Kits\10\Extension SDKs\WindowsMobile\$(TargetPlatformVersion)')">
-      <Name>Windows Mobile Extensions for the UWP</Name>
-    </SDKReference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\modules\libVLCX.UWP\libVLCX.UWP.vcxproj">

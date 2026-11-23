@@ -24,6 +24,9 @@ namespace VLC.ScriptPlayer.Playback
         private readonly CoreDispatcher _uiDispatcher;
         private readonly List<string> _accessTokens = new List<string>();
 
+        private int _mediaGeneration = 0;
+        private bool _mediaOpenedFiredForCurrent = false;
+
         public MediaItem CurrentMedia { get; private set; }
         public long CurrentPositionMs => _mediaPlayer != null ? _mediaPlayer.time() : 0;
         public long DurationMs => _mediaPlayer != null ? _mediaPlayer.length() : 0;
@@ -67,10 +70,50 @@ namespace VLC.ScriptPlayer.Playback
             _mediaPlayer = new MediaPlayer(Locator.PlaybackService.Instance);
 
             var em = _mediaPlayer.eventManager();
-            em.OnPlaying += OnVlcPlaying;
-            em.OnEndReached += OnVlcEndReached;
-            em.OnEncounteredError += OnVlcEncounteredError;
-            em.OnTimeChanged += OnVlcTimeChanged;
+            em.OnPlaying += () =>
+            {
+                int gen = _mediaGeneration;
+                RunOnUIThread(() =>
+                {
+                    if (gen != _mediaGeneration) return;
+                    if (!_mediaOpenedFiredForCurrent)
+                    {
+                        _mediaOpenedFiredForCurrent = true;
+                        MediaOpened?.Invoke(CurrentMedia?.Id ?? "unknown");
+                    }
+                });
+            };
+
+            em.OnEndReached += () =>
+            {
+                int gen = _mediaGeneration;
+                RunOnUIThread(() =>
+                {
+                    if (gen != _mediaGeneration) return;
+                    MediaEnded?.Invoke(CurrentMedia?.Id ?? "unknown");
+                });
+            };
+
+            em.OnEncounteredError += () =>
+            {
+                int gen = _mediaGeneration;
+                RunOnUIThread(() =>
+                {
+                    if (gen != _mediaGeneration) return;
+                    MediaFailed?.Invoke(CurrentMedia?.Id ?? "unknown", "VLC playback error encountered.");
+                });
+            };
+
+            em.OnTimeChanged += (timeMs) =>
+            {
+                int gen = _mediaGeneration;
+                RunOnUIThread(() =>
+                {
+                    if (gen != _mediaGeneration) return;
+                    PositionChanged?.Invoke(timeMs, DurationMs);
+                    CheckSegmentBoundary(timeMs);
+                });
+            };
 
             _positionTimer.Start();
         }
@@ -78,6 +121,10 @@ namespace VLC.ScriptPlayer.Playback
         public async Task LoadAndPlayAsync(MediaItem item, StorageFile storageFile = null)
         {
             if (item == null) return;
+
+            _mediaGeneration++;
+            _mediaOpenedFiredForCurrent = false;
+
             CurrentMedia = item;
             SegmentStartMs = item.StartMs;
             SegmentEndMs = item.EndMs;
@@ -191,6 +238,7 @@ namespace VLC.ScriptPlayer.Playback
 
         public void Stop()
         {
+            _mediaGeneration++;
             _positionTimer.Stop();
             if (_mediaPlayer != null)
             {
@@ -224,39 +272,6 @@ namespace VLC.ScriptPlayer.Playback
                     Seek(loopTo);
                 }
             }
-        }
-
-        private void OnVlcPlaying()
-        {
-            RunOnUIThread(() =>
-            {
-                MediaOpened?.Invoke(CurrentMedia?.Id ?? "unknown");
-            });
-        }
-
-        private void OnVlcEndReached()
-        {
-            RunOnUIThread(() =>
-            {
-                MediaEnded?.Invoke(CurrentMedia?.Id ?? "unknown");
-            });
-        }
-
-        private void OnVlcEncounteredError()
-        {
-            RunOnUIThread(() =>
-            {
-                MediaFailed?.Invoke(CurrentMedia?.Id ?? "unknown", "VLC playback error encountered.");
-            });
-        }
-
-        private void OnVlcTimeChanged(long timeMs)
-        {
-            RunOnUIThread(() =>
-            {
-                PositionChanged?.Invoke(timeMs, DurationMs);
-                CheckSegmentBoundary(timeMs);
-            });
         }
 
         private void CleanupAccessTokens()

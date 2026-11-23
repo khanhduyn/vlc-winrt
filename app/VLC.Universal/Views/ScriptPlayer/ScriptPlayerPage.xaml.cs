@@ -51,6 +51,13 @@ namespace VLC.UI.Views.ScriptPlayer
             base.OnNavigatedTo(e);
             CurrentInstance = this;
 
+            // Make background SwapChainPanel visible and start composition animation
+            if (App.RootPage?.SwapChainPanel != null)
+            {
+                App.RootPage.SwapChainPanel.Visibility = Visibility.Visible;
+                App.RootPage.StartCompositionAnimationOnSwapChain(false);
+            }
+
             // Disable VLC global keyboard listener so shortcuts don't collide
             if (Locator.MainVM?.KeyboardListenerService != null)
             {
@@ -74,6 +81,9 @@ namespace VLC.UI.Views.ScriptPlayer
             Window.Current.CoreWindow.KeyDown -= OnCoreWindowKeyDown;
             _inputTimer.Stop();
 
+            _fsmEngine?.Detach();
+            _fsmEngine = null;
+
             _videoController?.Stop();
             _context?.ClearTimers();
 
@@ -83,18 +93,14 @@ namespace VLC.UI.Views.ScriptPlayer
                 Locator.MainVM.KeyboardListenerService.CanListen = true;
             }
 
+            // Collapse SwapChainPanel when leaving player page
+            if (App.RootPage?.SwapChainPanel != null)
+            {
+                App.RootPage.SwapChainPanel.Visibility = Visibility.Collapsed;
+            }
+
             CurrentInstance = null;
             base.OnNavigatingFrom(e);
-        }
-
-        public bool HandleBackPressed()
-        {
-            if (_fsmEngine != null)
-            {
-                _fsmEngine.PostEvent("input:B");
-                return true;
-            }
-            return false;
         }
 
         public void Pause()
@@ -106,6 +112,12 @@ namespace VLC.UI.Views.ScriptPlayer
         {
             try
             {
+                // Detach and clean up any previous instance before reloading
+                _fsmEngine?.Detach();
+                _fsmEngine = null;
+                _videoController?.Stop();
+                _context?.ClearTimers();
+
                 _logItems.Add($"[{DateTime.Now:HH:mm:ss}] Scanning for script configurations...");
 
                 ScriptConfig loadedConfig = null;
@@ -118,7 +130,21 @@ namespace VLC.UI.Views.ScriptPlayer
                     _logItems.Add($"[{DateTime.Now:HH:mm:ss}] Loaded script from USB: {usbFolder?.Name}");
                 }
 
-                // 2. Fall back to packaged sample script
+                // 2. Fall back to local app data if not found on USB
+                if (loadedConfig == null && !forceUsbScan)
+                {
+                    try
+                    {
+                        loadedConfig = await _scriptLoader.LoadLocalScriptAsync("script.json");
+                        if (loadedConfig != null)
+                        {
+                            _logItems.Add($"[{DateTime.Now:HH:mm:ss}] Loaded script from LocalAppData: script.json");
+                        }
+                    }
+                    catch { }
+                }
+
+                // 3. Fall back to packaged sample script
                 if (loadedConfig == null)
                 {
                     loadedConfig = await _scriptLoader.LoadPackagedScriptAsync("Assets/sample_script.json");
@@ -176,7 +202,7 @@ namespace VLC.UI.Views.ScriptPlayer
                 _ = InitializeAndLoadScriptAsync(forceUsbScan: true);
             }
 
-            // Standard buttons edge detection
+            // Standard buttons edge detection (handled exclusively here for gamepads to prevent double-dispatch)
             CheckAndEmitButton(currentButtons, _previousButtons, GamepadButtons.A, "input:A");
             CheckAndEmitButton(currentButtons, _previousButtons, GamepadButtons.B, "input:B");
             CheckAndEmitButton(currentButtons, _previousButtons, GamepadButtons.X, "input:X");
@@ -215,42 +241,36 @@ namespace VLC.UI.Views.ScriptPlayer
 
         private void OnCoreWindowKeyDown(CoreWindow sender, KeyEventArgs args)
         {
+            // Keyboard keys only; Gamepad* keys omitted to avoid double-firing with OnInputPollTick
             switch (args.VirtualKey)
             {
                 case VirtualKey.H:
                     ToggleDebugHud();
                     break;
                 case VirtualKey.Space:
-                case VirtualKey.GamepadA:
                 case VirtualKey.Enter:
                     _fsmEngine?.PostEvent("input:A");
                     break;
                 case VirtualKey.Escape:
-                case VirtualKey.GamepadB:
+                case VirtualKey.B:
                     _fsmEngine?.PostEvent("input:B");
                     break;
                 case VirtualKey.X:
-                case VirtualKey.GamepadX:
                     _fsmEngine?.PostEvent("input:X");
                     break;
                 case VirtualKey.Y:
-                case VirtualKey.GamepadY:
                     _fsmEngine?.PostEvent("input:Y");
                     break;
                 case VirtualKey.Up:
-                case VirtualKey.GamepadDPadUp:
                     _fsmEngine?.PostEvent("input:DPadUp");
                     break;
                 case VirtualKey.Down:
-                case VirtualKey.GamepadDPadDown:
                     _fsmEngine?.PostEvent("input:DPadDown");
                     break;
                 case VirtualKey.Left:
-                case VirtualKey.GamepadDPadLeft:
                     _fsmEngine?.PostEvent("input:DPadLeft");
                     break;
                 case VirtualKey.Right:
-                case VirtualKey.GamepadDPadRight:
                     _fsmEngine?.PostEvent("input:DPadRight");
                     break;
                 case VirtualKey.R:
@@ -269,7 +289,10 @@ namespace VLC.UI.Views.ScriptPlayer
 
         private void OnExitClicked(object sender, RoutedEventArgs e)
         {
-            Locator.NavigationService.Go(Locator.SettingsVM.HomePage);
+            if (!Locator.NavigationService.GoBack_Default())
+            {
+                Locator.NavigationService.Go(Locator.SettingsVM.HomePage);
+            }
         }
 
         private void OnPositionChanged(long currentPosMs, long durationMs)
@@ -298,7 +321,11 @@ namespace VLC.UI.Views.ScriptPlayer
             {
                 _logItems.RemoveAt(0);
             }
-            HudLogList.ScrollIntoView(_logItems[_logItems.Count - 1]);
+            try
+            {
+                HudLogList.ScrollIntoView(_logItems[_logItems.Count - 1]);
+            }
+            catch { }
         }
 
         private void OnHudPromptChanged(string prompt)

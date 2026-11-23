@@ -129,12 +129,8 @@ namespace VLC.Services.RunTime
                 case VLCPage.None:
                     break;
                 case VLCPage.ScriptPlayerPage:
-                    if (ScriptPlayerPage.CurrentInstance != null && ScriptPlayerPage.CurrentInstance.HandleBackPressed())
-                    {
-                        return true;
-                    }
-                    GoBack_Default();
-                    break;
+                    // Suppress back navigation so OnInputPollTick / KeyDown emits input:B to the script engine
+                    return true;
                 case VLCPage.MainPageXBOX:
                     GoBack_HideFlyout();
                     break;

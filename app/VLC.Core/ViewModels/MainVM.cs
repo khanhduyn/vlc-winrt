@@ -108,7 +108,7 @@ namespace VLC.ViewModels
             Panels.Add(new Panel(Strings.Music, VLCPage.MainPageMusic, App.Current.Resources["WaveSymbol"].ToString(), App.Current.Resources["WaveFilledSymbol"].ToString()));
             Panels.Add(new Panel(Strings.FileExplorer, VLCPage.MainPageFileExplorer, App.Current.Resources["FileExplorerSymbol"].ToString(), App.Current.Resources["FileExplorerFilledSymbol"].ToString()));
             Panels.Add(new Panel(Strings.Network, VLCPage.MainPageNetwork, App.Current.Resources["StreamSymbol"].ToString(), App.Current.Resources["StreamFilledSymbol"].ToString()));
-            Panels.Add(new Panel("Script Player", VLCPage.ScriptPlayerPage, "\uE768", "\uE768"));
+            Panels.Add(new Panel("Script Player", VLCPage.ScriptPlayerPage, App.Current.Resources["PlaySymbol"].ToString(), App.Current.Resources["PlaySymbol"].ToString()));
 
             CoreWindow.GetForCurrentThread().Activated += ApplicationState_Activated;
 

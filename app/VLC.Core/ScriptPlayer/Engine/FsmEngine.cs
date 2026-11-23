@@ -43,16 +43,44 @@ namespace VLC.ScriptPlayer.Engine
 
             // Wire dispatcher events
             _dispatcher.RequestTransition += OnRequestTransition;
-            _dispatcher.EventTriggered += (evt) => PostEvent(evt);
+            _dispatcher.EventTriggered += OnDispatcherEventTriggered;
 
             // Wire playback / cue events
-            _cueTracker.CueFired += (cue) => PostEvent($"cue:{cue.Id}");
-            _cueTracker.SegmentEnded += (mediaId) => PostEvent("segment:ended");
+            _cueTracker.CueFired += OnCueFired;
+            _cueTracker.SegmentEnded += OnSegmentEnded;
 
-            _videoController.MediaOpened += (mediaId) => PostEvent("media:opened");
-            _videoController.MediaEnded += (mediaId) => PostEvent("media:ended");
-            _videoController.MediaFailed += (mediaId, err) => PostEvent("media:failed");
+            _videoController.MediaOpened += OnMediaOpened;
+            _videoController.MediaEnded += OnMediaEnded;
+            _videoController.MediaFailed += OnMediaFailed;
         }
+
+        public void Detach()
+        {
+            if (_dispatcher != null)
+            {
+                _dispatcher.RequestTransition -= OnRequestTransition;
+                _dispatcher.EventTriggered -= OnDispatcherEventTriggered;
+            }
+            if (_cueTracker != null)
+            {
+                _cueTracker.CueFired -= OnCueFired;
+                _cueTracker.SegmentEnded -= OnSegmentEnded;
+            }
+            if (_videoController != null)
+            {
+                _videoController.MediaOpened -= OnMediaOpened;
+                _videoController.MediaEnded -= OnMediaEnded;
+                _videoController.MediaFailed -= OnMediaFailed;
+            }
+            _eventQueue.Clear();
+        }
+
+        private void OnDispatcherEventTriggered(string evt) => PostEvent(evt);
+        private void OnCueFired(CuePoint cue) => PostEvent($"cue:{cue.Id}");
+        private void OnSegmentEnded(string mediaId) => PostEvent("segment:ended");
+        private void OnMediaOpened(string mediaId) => PostEvent("media:opened");
+        private void OnMediaEnded(string mediaId) => PostEvent("media:ended");
+        private void OnMediaFailed(string mediaId, string err) => PostEvent("media:failed");
 
         public async Task StartAsync()
         {
@@ -143,7 +171,7 @@ namespace VLC.ScriptPlayer.Engine
                             await TransitionToStateAsync(rule.NextState);
                         }
 
-                        return true; // Event consumed
+                        return true;
                     }
                 }
             }
@@ -173,10 +201,8 @@ namespace VLC.ScriptPlayer.Engine
                 }
             }
 
-            // Set new state
             _context.SetState(targetState);
 
-            // Execute onEnter of new state
             if (newStateDef.OnEnter != null)
             {
                 foreach (var action in newStateDef.OnEnter)

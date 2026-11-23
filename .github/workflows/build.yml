@@ -80,7 +80,7 @@ jobs:
             /p:PackageCertificatePassword="Passw0rd123!" `
             /p:AppxPackageDir="$env:GITHUB_WORKSPACE/AppPackages/" `
             /v:normal `
-            /fl /flp:logfile=msbuild.log;verbosity=normal
+            /fl "/flp:logfile=msbuild.log;verbosity=normal"
 
       - name: Upload build log
         if: always()

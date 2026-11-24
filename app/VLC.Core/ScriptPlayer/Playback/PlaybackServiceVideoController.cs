@@ -54,7 +54,7 @@ namespace VLC.ScriptPlayer.Playback
 
             _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             _positionTimer.Tick += OnPositionTimerTick;
-            _positionTimer.Start();
+            RunOnUIThread(() => _positionTimer.Start());
         }
 
         /// <summary>
@@ -69,13 +69,12 @@ namespace VLC.ScriptPlayer.Playback
             };
             _mediaOpenedFiredForCurrent = true;
 
-            if (!_positionTimer.IsEnabled)
-            {
-                _positionTimer.Start();
-            }
-
             RunOnUIThread(() =>
             {
+                if (!_positionTimer.IsEnabled)
+                {
+                    _positionTimer.Start();
+                }
                 MediaOpened?.Invoke(CurrentMedia.Id);
                 PositionChanged?.Invoke(CurrentPositionMs, DurationMs);
             });
@@ -146,10 +145,13 @@ namespace VLC.ScriptPlayer.Playback
                 }
             }
 
-            if (!_positionTimer.IsEnabled)
+            RunOnUIThread(() =>
             {
-                _positionTimer.Start();
-            }
+                if (!_positionTimer.IsEnabled)
+                {
+                    _positionTimer.Start();
+                }
+            });
         }
 
         public void Play()
@@ -194,7 +196,7 @@ namespace VLC.ScriptPlayer.Playback
         public void Stop()
         {
             Interlocked.Increment(ref _mediaGeneration);
-            _positionTimer.Stop();
+            RunOnUIThread(() => _positionTimer.Stop());
             _playbackService?.Stop();
             CleanupAccessTokens();
         }
@@ -204,8 +206,11 @@ namespace VLC.ScriptPlayer.Playback
         /// </summary>
         public void Detach()
         {
-            _positionTimer.Stop();
-            _positionTimer.Tick -= OnPositionTimerTick;
+            RunOnUIThread(() =>
+            {
+                _positionTimer.Stop();
+                _positionTimer.Tick -= OnPositionTimerTick;
+            });
 
             if (_playbackService != null)
             {

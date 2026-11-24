@@ -117,6 +117,7 @@ namespace VLC.ViewModels.VideoVM
         private ScriptConfig _loadedScript;
         private StorageFile _loadedScriptFile;
         private StorageFolder _loadedScriptFolder;
+        private ScriptLoader _loadedScriptLoader;
         private bool _isScriptActive = false;
         private bool _isScriptDebugHudVisible = false;
         private bool _isScriptSwitchingMedia = false;
@@ -532,9 +533,12 @@ namespace VLC.ViewModels.VideoVM
                         var scriptFile = await LocateScriptFile(parent, fileNameWithoutExtension);
                         if (scriptFile != null)
                         {
-                            await LoadScriptFileAsync(scriptFile, parent);
-                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
-                            return true;
+                            var loaded = await LoadScriptFileAsync(scriptFile, parent);
+                            if (loaded)
+                            {
+                                ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                                return true;
+                            }
                         }
                     }
                 }
@@ -552,9 +556,12 @@ namespace VLC.ViewModels.VideoVM
                         var scriptFile = await LocateScriptFile(folder, fileNameWithoutExtension);
                         if (scriptFile != null)
                         {
-                            await LoadScriptFileAsync(scriptFile, folder);
-                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
-                            return true;
+                            var loaded = await LoadScriptFileAsync(scriptFile, folder);
+                            if (loaded)
+                            {
+                                ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                                return true;
+                            }
                         }
                     }
                 }
@@ -575,9 +582,12 @@ namespace VLC.ViewModels.VideoVM
                         var scriptFile = await LocateScriptFile(searchFolder, fileNameWithoutExtension);
                         if (scriptFile != null)
                         {
-                            await LoadScriptFileAsync(scriptFile, searchFolder);
-                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
-                            return true;
+                            var loaded = await LoadScriptFileAsync(scriptFile, searchFolder);
+                            if (loaded)
+                            {
+                                ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                                return true;
+                            }
                         }
                     }
                     catch { }
@@ -645,18 +655,22 @@ namespace VLC.ViewModels.VideoVM
                     return false;
                 }
 
-                LoadedScript = config;
-                LoadedScriptFile = file;
-                LoadedScriptFolder = loader.CurrentScriptFolder ?? parentFolder;
-                _isScriptActive = false; // Always loaded inactive!
+                await DispatchHelper.InvokeInUIThread(CoreDispatcherPriority.Normal, () =>
+                {
+                    LoadedScript = config;
+                    LoadedScriptFile = file;
+                    LoadedScriptFolder = loader.CurrentScriptFolder ?? parentFolder;
+                    _loadedScriptLoader = loader;
+                    _isScriptActive = false; // Always loaded inactive!
 
-                OnPropertyChanged(nameof(LoadedScript));
-                OnPropertyChanged(nameof(LoadedScriptFile));
-                OnPropertyChanged(nameof(LoadedScriptFolder));
-                OnPropertyChanged(nameof(HasLoadedScript));
-                OnPropertyChanged(nameof(LoadedScriptDisplayName));
-                OnPropertyChanged(nameof(ScriptStatusText));
-                OnPropertyChanged(nameof(IsScriptActive));
+                    OnPropertyChanged(nameof(LoadedScript));
+                    OnPropertyChanged(nameof(LoadedScriptFile));
+                    OnPropertyChanged(nameof(LoadedScriptFolder));
+                    OnPropertyChanged(nameof(HasLoadedScript));
+                    OnPropertyChanged(nameof(LoadedScriptDisplayName));
+                    OnPropertyChanged(nameof(ScriptStatusText));
+                    OnPropertyChanged(nameof(IsScriptActive));
+                });
 
                 return true;
             }
@@ -671,18 +685,23 @@ namespace VLC.ViewModels.VideoVM
         public void UnloadScript()
         {
             DeactivateScript();
-            LoadedScript = null;
-            LoadedScriptFile = null;
-            LoadedScriptFolder = null;
-            _isScriptActive = false;
 
-            OnPropertyChanged(nameof(LoadedScript));
-            OnPropertyChanged(nameof(LoadedScriptFile));
-            OnPropertyChanged(nameof(LoadedScriptFolder));
-            OnPropertyChanged(nameof(HasLoadedScript));
-            OnPropertyChanged(nameof(LoadedScriptDisplayName));
-            OnPropertyChanged(nameof(ScriptStatusText));
-            OnPropertyChanged(nameof(IsScriptActive));
+            var _ = DispatchHelper.InvokeInUIThread(CoreDispatcherPriority.Normal, () =>
+            {
+                LoadedScript = null;
+                LoadedScriptFile = null;
+                LoadedScriptFolder = null;
+                _loadedScriptLoader = null;
+                _isScriptActive = false;
+
+                OnPropertyChanged(nameof(LoadedScript));
+                OnPropertyChanged(nameof(LoadedScriptFile));
+                OnPropertyChanged(nameof(LoadedScriptFolder));
+                OnPropertyChanged(nameof(HasLoadedScript));
+                OnPropertyChanged(nameof(LoadedScriptDisplayName));
+                OnPropertyChanged(nameof(ScriptStatusText));
+                OnPropertyChanged(nameof(IsScriptActive));
+            });
         }
 
         public async Task ActivateScriptAsync()
@@ -692,7 +711,8 @@ namespace VLC.ViewModels.VideoVM
 
             try
             {
-                _scriptVideoController = new PlaybackServiceVideoController(Locator.PlaybackService, Window.Current?.Dispatcher);
+                var dispatcher = Window.Current?.Dispatcher ?? App.Dispatcher;
+                _scriptVideoController = new PlaybackServiceVideoController(Locator.PlaybackService, dispatcher);
                 _scriptVideoController.PositionChanged += OnScriptPositionChanged;
 
                 string videoPath = CurrentVideo?.File?.Path ?? CurrentVideo?.Path ?? "current";
@@ -707,20 +727,23 @@ namespace VLC.ViewModels.VideoVM
 
                 _scriptCueTracker = new CuePointTracker(_scriptVideoController);
 
-                _scriptStateContext = new StateContext(_scriptVideoController, _scriptCueTracker, LoadedScriptFolder);
-                _scriptStateContext.PromptChanged += (prompt) => ScriptHudPromptChanged?.Invoke(prompt);
+                _scriptStateContext = new StateContext(dispatcher);
+                _scriptStateContext.HudPromptChanged += (prompt) => ScriptHudPromptChanged?.Invoke(prompt);
                 _scriptStateContext.LogAdded += (log) => ScriptLogAdded?.Invoke(log);
-                _scriptStateContext.StateChanged += (state) => ScriptStateUpdated?.Invoke();
+                _scriptStateContext.StateChanged += (oldState, newState) => ScriptStateUpdated?.Invoke();
+                _scriptStateContext.VariableChanged += (k, v) => ScriptStateUpdated?.Invoke();
 
-                _scriptActionDispatcher = new ActionDispatcher(_scriptVideoController, _scriptStateContext);
+                _scriptActionDispatcher = new ActionDispatcher(_scriptStateContext, _scriptVideoController, _loadedScriptLoader, LoadedScript, dispatcher);
 
-                _scriptFsmEngine = new FsmEngine(LoadedScript, _scriptStateContext, _scriptActionDispatcher, _scriptVideoController, _scriptCueTracker);
+                _scriptFsmEngine = new FsmEngine(LoadedScript, _scriptStateContext, _scriptVideoController, _scriptCueTracker, _scriptActionDispatcher, dispatcher);
 
-                _isScriptActive = true;
-                OnPropertyChanged(nameof(IsScriptActive));
-                OnPropertyChanged(nameof(ScriptStatusText));
-
-                ScriptActivated?.Invoke();
+                await DispatchHelper.InvokeInUIThread(CoreDispatcherPriority.Normal, () =>
+                {
+                    _isScriptActive = true;
+                    OnPropertyChanged(nameof(IsScriptActive));
+                    OnPropertyChanged(nameof(ScriptStatusText));
+                    ScriptActivated?.Invoke();
+                });
 
                 await _scriptFsmEngine.StartAsync();
             }
@@ -752,10 +775,13 @@ namespace VLC.ViewModels.VideoVM
             _scriptCueTracker = null;
 
             _isScriptActive = false;
-            OnPropertyChanged(nameof(IsScriptActive));
-            OnPropertyChanged(nameof(ScriptStatusText));
 
-            ScriptDeactivated?.Invoke();
+            var _ = DispatchHelper.InvokeInUIThread(CoreDispatcherPriority.Normal, () =>
+            {
+                OnPropertyChanged(nameof(IsScriptActive));
+                OnPropertyChanged(nameof(ScriptStatusText));
+                ScriptDeactivated?.Invoke();
+            });
         }
 
         private void OnScriptPositionChanged(long pos, long dur)

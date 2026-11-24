@@ -517,8 +517,8 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <TextBlock Text="[A/B/X/Y] Choices" Foreground="#888888" FontSize="12" Margin="0,0,24,0" />
                     <TextBlock Text="[DPad] Navigate" Foreground="#888888" FontSize="12" Margin="0,0,24,0" />
-                    <TextBlock Text="[LeftStick] Reload" Foreground="#888888" FontSize="12" Margin="0,0,24,0" />
-                    <TextBlock Text="[RightStick] Scan USB" Foreground="#888888" FontSize="12" />
+                    <TextBlock Text="[View]+[Menu] / [H] Toggle HUD" Foreground="#888888" FontSize="12" Margin="0,0,24,0" />
+                    <TextBlock Text="Use [Deactivate] to return to VLC" Foreground="#888888" FontSize="12" />
                 </StackPanel>
             </Border>
         </Grid>

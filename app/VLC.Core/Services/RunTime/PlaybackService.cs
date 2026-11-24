@@ -396,14 +396,14 @@ namespace VLC.Services.RunTime
 
         public long Time
         {
-            get { return _mediaPlayer.time(); }
-            set { _mediaPlayer.setTime(value); }
+            get { return _mediaPlayer != null ? _mediaPlayer.time() : 0; }
+            set { _mediaPlayer?.setTime(value); }
         }
 
         public float Position
         {
-            get { return _mediaPlayer.position(); }
-            set { _mediaPlayer.setPosition(value); }
+            get { return _mediaPlayer != null ? _mediaPlayer.position() : 0f; }
+            set { _mediaPlayer?.setPosition(value); }
         }
 
         public void OpenSubtitleMrl(string mrl)

@@ -16,6 +16,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Gaming.Input;
 using Windows.System;
+using Windows.UI.Core;
 using Windows.Foundation;
 using VLC.ViewModels;
 using VLC.ViewModels.VideoVM;
@@ -148,7 +149,7 @@ namespace VLC.UI.Views.VideoPages
             Locator.VideoPlayerVm.ScriptHudPromptChanged += OnScriptHudPromptChanged;
             Locator.VideoPlayerVm.ScriptLogAdded += OnScriptLogAdded;
             Locator.VideoPlayerVm.ScriptStateUpdated += OnScriptStateUpdated;
-            Locator.VideoPlayerVm.ScriptPositionUpdated += OnScriptPositionUpdated;
+            Locator.VideoPlayerVm.ScriptPositionUpdated += OnScriptPositionChanged;
             if (Locator.VideoPlayerVm.IsScriptActive)
             {
                 OnScriptActiveStateChanged(true);
@@ -222,7 +223,7 @@ namespace VLC.UI.Views.VideoPages
             Locator.VideoPlayerVm.ScriptHudPromptChanged -= OnScriptHudPromptChanged;
             Locator.VideoPlayerVm.ScriptLogAdded -= OnScriptLogAdded;
             Locator.VideoPlayerVm.ScriptStateUpdated -= OnScriptStateUpdated;
-            Locator.VideoPlayerVm.ScriptPositionUpdated -= OnScriptPositionUpdated;
+            Locator.VideoPlayerVm.ScriptPositionUpdated -= OnScriptPositionChanged;
 
             Locator.VideoPlayerVm.PlayerControlVisibilityChangeRequested -= VideoPlayerVm_PlayerControlVisibilityChangeRequested;
             Locator.VideoPlayerVm.PlayerControlVisibilityExtendCurrentRequested -= VideoPlayerVmOnPlayerControlVisibilityExtendCurrentRequested;
@@ -559,6 +560,11 @@ namespace VLC.UI.Views.VideoPages
                     Locator.MainVM.KeyboardListenerService.CanListen = false;
                 }
 
+                _scriptLogItems.Clear();
+                _previousGamepadButtons = GamepadButtons.None;
+                _prevLeftTriggerPressed = false;
+                _prevRightTriggerPressed = false;
+
                 ScriptHudTitle.Text = Locator.VideoPlayerVm.LoadedScriptDisplayName;
                 UpdateScriptDebugHudVisibility();
                 UpdateFsmDisplay();
@@ -626,21 +632,21 @@ namespace VLC.UI.Views.VideoPages
             CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadDown, "input:DPadDown");
             CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadLeft, "input:DPadLeft");
             CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadRight, "input:DPadRight");
-            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.LeftShoulder, "input:LB");
-            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.RightShoulder, "input:RB");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.LeftShoulder, "input:LeftShoulder");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.RightShoulder, "input:RightShoulder");
 
             // Triggers as buttons (threshold > 0.5)
             bool leftTriggerDown = reading.LeftTrigger > 0.5;
             if (leftTriggerDown && !_prevLeftTriggerPressed)
             {
-                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:LT");
+                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:LeftTrigger");
             }
             _prevLeftTriggerPressed = leftTriggerDown;
 
             bool rightTriggerDown = reading.RightTrigger > 0.5;
             if (rightTriggerDown && !_prevRightTriggerPressed)
             {
-                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:RT");
+                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:RightTrigger");
             }
             _prevRightTriggerPressed = rightTriggerDown;
 

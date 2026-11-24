@@ -120,27 +120,39 @@ namespace VLC.Model
             ".srt", ".ass", ".ssa"
         };
 
+        public static string[] ScriptExtensions =
+        {
+            ".json"
+        };
+
         public enum VLCFileType
         {
             Audio,
             Video,
             Subtitle,
+            Script,
             Other,
         }
 
         public static VLCFileType FileTypeHelper(string ext)
         {
-            if (VideoExtensions.Contains(ext))
+            if (string.IsNullOrEmpty(ext)) return VLCFileType.Other;
+            var lower = ext.ToLowerInvariant();
+            if (VideoExtensions.Contains(lower))
             {
                 return VLCFileType.Video;
             }
-            else if (AudioExtensions.Contains(ext))
+            else if (AudioExtensions.Contains(lower))
             {
                 return VLCFileType.Audio;
             }
-            else if (SubtitleExtensions.Contains(ext))
+            else if (SubtitleExtensions.Contains(lower))
             {
                 return VLCFileType.Subtitle;
+            }
+            else if (ScriptExtensions.Contains(lower))
+            {
+                return VLCFileType.Script;
             }
             else
             {

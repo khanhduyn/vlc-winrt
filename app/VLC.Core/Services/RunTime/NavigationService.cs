@@ -168,8 +168,17 @@ namespace VLC.Services.RunTime
                     if (currentFlyout == VLCPage.VideoPlayerOptionsPanel ||
                         currentFlyout == VLCPage.SubtitlesSettings ||
                         currentFlyout == VLCPage.AudioTracksSettings ||
-                        currentFlyout == VLCPage.ChaptersSettings)
+                        currentFlyout == VLCPage.ChaptersSettings ||
+                        currentFlyout == VLCPage.ScriptSettings)
+                    {
                         GoBack_HideFlyout();
+                        break;
+                    }
+
+                    if (Locator.VideoPlayerVm.IsScriptActive)
+                    {
+                        return true;
+                    }
 
                     Locator.MediaPlaybackViewModel.GoBack.Execute(null);
                     break;
@@ -209,6 +218,9 @@ namespace VLC.Services.RunTime
                     GoBack_HideFlyout();
                     break;
                 case VLCPage.SubtitlesSettings:
+                    GoBack_HideFlyout();
+                    break;
+                case VLCPage.ScriptSettings:
                     GoBack_HideFlyout();
                     break;
                 case VLCPage.ChaptersSettings:
@@ -358,6 +370,9 @@ namespace VLC.Services.RunTime
                 case VLCPage.SubtitlesSettings:
                     setFlyoutContent(desiredPage, typeof(SubtitlesSettings), param);
                     break;
+                case VLCPage.ScriptSettings:
+                    setFlyoutContent(desiredPage, typeof(ScriptSettings), param);
+                    break;
                 case VLCPage.AudioTracksSettings:
                     setFlyoutContent(desiredPage, typeof(AudioTracksSettings), param);
                     break;
@@ -429,6 +444,7 @@ namespace VLC.Services.RunTime
                    page == VLCPage.SettingsPage ||
                    page == VLCPage.VideoPlayerOptionsPanel ||
                    page == VLCPage.SubtitlesSettings ||
+                   page == VLCPage.ScriptSettings ||
                    page == VLCPage.AudioTracksSettings ||
                    page == VLCPage.ChaptersSettings ||
                    page == VLCPage.TvShowView ||
@@ -474,6 +490,8 @@ namespace VLC.Services.RunTime
                 return VLCPage.MiniPlayerView;
             if (page == typeof(ScriptPlayerPage))
                 return VLCPage.ScriptPlayerPage;
+            if (page == typeof(ScriptSettings))
+                return VLCPage.ScriptSettings;
             return VLCPage.None;
         }
 
@@ -498,7 +516,8 @@ namespace VLC.Services.RunTime
         {
             if (currentFlyout == VLCPage.SubtitlesSettings ||
                 currentFlyout == VLCPage.AudioTracksSettings ||
-                currentFlyout == VLCPage.ChaptersSettings)
+                currentFlyout == VLCPage.ChaptersSettings ||
+                currentFlyout == VLCPage.ScriptSettings)
             {
                 GoBack_HideFlyout();
             }

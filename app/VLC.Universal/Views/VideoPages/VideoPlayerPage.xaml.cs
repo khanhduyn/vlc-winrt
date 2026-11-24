@@ -8,12 +8,17 @@
  **********************************************************************/
 
 using System;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using System.Threading.Tasks;
+using Windows.Gaming.Input;
+using Windows.System;
 using Windows.Foundation;
 using VLC.ViewModels;
+using VLC.ViewModels.VideoVM;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Input;
@@ -55,6 +60,12 @@ namespace VLC.UI.Views.VideoPages
         readonly SolidColorBrush _red;
         MediaPlaybackViewModel _viewModel => Locator.MediaPlaybackViewModel;
 
+        private DispatcherTimer _scriptInputTimer;
+        private GamepadButtons _previousGamepadButtons = GamepadButtons.None;
+        private bool _prevLeftTriggerPressed = false;
+        private bool _prevRightTriggerPressed = false;
+        private readonly ObservableCollection<string> _scriptLogItems = new ObservableCollection<string>();
+
         public delegate void PlayerControlVisibilityChanged(bool visibility);
         public event PlayerControlVisibilityChanged OnPlayerControlVisibilityChanged;
 
@@ -63,6 +74,10 @@ namespace VLC.UI.Views.VideoPages
             InitializeComponent();
             _white = new SolidColorBrush(Colors.White);
             _red = new SolidColorBrush(Colors.Red);
+
+            ScriptHudLogList.ItemsSource = _scriptLogItems;
+            _scriptInputTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+            _scriptInputTimer.Tick += OnScriptInputPollTick;
         }
 
         void MouseWheelChanged(object sender, PointerRoutedEventArgs e)
@@ -129,6 +144,16 @@ namespace VLC.UI.Views.VideoPages
             Locator.VideoPlayerVm.PlayerControlVisibilityExtendCurrentRequested += VideoPlayerVmOnPlayerControlVisibilityExtendCurrentRequested;
             OnPlayerControlVisibilityChanged += Locator.VideoPlayerVm.OnPlayerControlVisibilityChanged;
 
+            Locator.VideoPlayerVm.PropertyChanged += VideoPlayerVmOnPropertyChanged;
+            Locator.VideoPlayerVm.ScriptHudPromptChanged += OnScriptHudPromptChanged;
+            Locator.VideoPlayerVm.ScriptLogAdded += OnScriptLogAdded;
+            Locator.VideoPlayerVm.ScriptStateUpdated += OnScriptStateUpdated;
+            Locator.VideoPlayerVm.ScriptPositionUpdated += OnScriptPositionUpdated;
+            if (Locator.VideoPlayerVm.IsScriptActive)
+            {
+                OnScriptActiveStateChanged(true);
+            }
+
             // Responsive design
             this.SizeChanged += OnSizeChanged;
             Responsive();
@@ -192,6 +217,13 @@ namespace VLC.UI.Views.VideoPages
 
             Locator.VideoPlayerVm.OnNavigatedFrom();
 
+            OnScriptActiveStateChanged(false);
+            Locator.VideoPlayerVm.PropertyChanged -= VideoPlayerVmOnPropertyChanged;
+            Locator.VideoPlayerVm.ScriptHudPromptChanged -= OnScriptHudPromptChanged;
+            Locator.VideoPlayerVm.ScriptLogAdded -= OnScriptLogAdded;
+            Locator.VideoPlayerVm.ScriptStateUpdated -= OnScriptStateUpdated;
+            Locator.VideoPlayerVm.ScriptPositionUpdated -= OnScriptPositionUpdated;
+
             Locator.VideoPlayerVm.PlayerControlVisibilityChangeRequested -= VideoPlayerVm_PlayerControlVisibilityChangeRequested;
             Locator.VideoPlayerVm.PlayerControlVisibilityExtendCurrentRequested -= VideoPlayerVmOnPlayerControlVisibilityExtendCurrentRequested;
             OnPlayerControlVisibilityChanged -= Locator.VideoPlayerVm.OnPlayerControlVisibilityChanged;
@@ -223,6 +255,9 @@ namespace VLC.UI.Views.VideoPages
         {
             await DispatchHelper.InvokeInUIThread(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
+                if (Locator.VideoPlayerVm.IsScriptActive || Locator.VideoPlayerVm.IsScriptSwitchingMedia)
+                    return;
+
                 if (!Locator.NavigationService.GoBack_Default() && Locator.MainVM.CurrentPanel != null)
                     Locator.NavigationService.Go(Locator.MainVM.CurrentPanel.Target);
             });
@@ -495,5 +530,248 @@ namespace VLC.UI.Views.VideoPages
             var grid = sender as UIElement;
             VideoFlyout.ShowAt(grid, e.GetPosition(grid));
         }
+
+        #region Interactive Script Handling
+
+        private void VideoPlayerVmOnPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(VideoPlayerVM.IsScriptActive))
+            {
+                OnScriptActiveStateChanged(Locator.VideoPlayerVm.IsScriptActive);
+            }
+            else if (e.PropertyName == nameof(VideoPlayerVM.IsScriptDebugHudVisible))
+            {
+                UpdateScriptDebugHudVisibility();
+            }
+            else if (e.PropertyName == nameof(VideoPlayerVM.LoadedScriptDisplayName))
+            {
+                ScriptHudTitle.Text = Locator.VideoPlayerVm.LoadedScriptDisplayName;
+            }
+        }
+
+        private void OnScriptActiveStateChanged(bool isActive)
+        {
+            if (isActive)
+            {
+                HideControlPanel();
+                if (Locator.MainVM?.KeyboardListenerService != null)
+                {
+                    Locator.MainVM.KeyboardListenerService.CanListen = false;
+                }
+
+                ScriptHudTitle.Text = Locator.VideoPlayerVm.LoadedScriptDisplayName;
+                UpdateScriptDebugHudVisibility();
+                UpdateFsmDisplay();
+                UpdateVariableDisplay();
+
+                _scriptInputTimer.Start();
+                Window.Current.CoreWindow.KeyDown -= OnScriptCoreWindowKeyDown;
+                Window.Current.CoreWindow.KeyDown += OnScriptCoreWindowKeyDown;
+            }
+            else
+            {
+                _scriptInputTimer.Stop();
+                Window.Current.CoreWindow.KeyDown -= OnScriptCoreWindowKeyDown;
+
+                ScriptPromptContainer.Visibility = Visibility.Collapsed;
+                ScriptDebugHud.Visibility = Visibility.Collapsed;
+
+                if (Locator.MainVM?.KeyboardListenerService != null)
+                {
+                    Locator.MainVM.KeyboardListenerService.CanListen = true;
+                }
+            }
+        }
+
+        private void OnScriptDeactivateClicked(object sender, RoutedEventArgs e)
+        {
+            Locator.VideoPlayerVm.DeactivateScript();
+        }
+
+        private void ToggleScriptDebugHud()
+        {
+            Locator.VideoPlayerVm.IsScriptDebugHudVisible = !Locator.VideoPlayerVm.IsScriptDebugHudVisible;
+        }
+
+        private void UpdateScriptDebugHudVisibility()
+        {
+            bool shouldShow = Locator.VideoPlayerVm.IsScriptActive && Locator.VideoPlayerVm.IsScriptDebugHudVisible;
+            ScriptDebugHud.Visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void OnScriptInputPollTick(object sender, object e)
+        {
+            if (!Locator.VideoPlayerVm.IsScriptActive) return;
+
+            var gamepads = Gamepad.Gamepads;
+            if (gamepads.Count == 0) return;
+
+            var gamepad = gamepads[0];
+            var reading = gamepad.GetCurrentReading();
+            var currentButtons = reading.Buttons;
+
+            // View + Menu to toggle HUD
+            if (currentButtons.HasFlag(GamepadButtons.View) && currentButtons.HasFlag(GamepadButtons.Menu) &&
+                (!_previousGamepadButtons.HasFlag(GamepadButtons.View) || !_previousGamepadButtons.HasFlag(GamepadButtons.Menu)))
+            {
+                ToggleScriptDebugHud();
+            }
+
+            // Action buttons & D-Pad
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.A, "input:A");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.B, "input:B");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.X, "input:X");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.Y, "input:Y");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadUp, "input:DPadUp");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadDown, "input:DPadDown");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadLeft, "input:DPadLeft");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.DPadRight, "input:DPadRight");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.LeftShoulder, "input:LB");
+            CheckAndEmitScriptButton(currentButtons, _previousGamepadButtons, GamepadButtons.RightShoulder, "input:RB");
+
+            // Triggers as buttons (threshold > 0.5)
+            bool leftTriggerDown = reading.LeftTrigger > 0.5;
+            if (leftTriggerDown && !_prevLeftTriggerPressed)
+            {
+                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:LT");
+            }
+            _prevLeftTriggerPressed = leftTriggerDown;
+
+            bool rightTriggerDown = reading.RightTrigger > 0.5;
+            if (rightTriggerDown && !_prevRightTriggerPressed)
+            {
+                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:RT");
+            }
+            _prevRightTriggerPressed = rightTriggerDown;
+
+            _previousGamepadButtons = currentButtons;
+        }
+
+        private static bool CheckButtonDown(GamepadButtons current, GamepadButtons previous, GamepadButtons target)
+        {
+            return current.HasFlag(target) && !previous.HasFlag(target);
+        }
+
+        private void CheckAndEmitScriptButton(GamepadButtons current, GamepadButtons previous, GamepadButtons target, string eventName)
+        {
+            if (CheckButtonDown(current, previous, target))
+            {
+                Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent(eventName);
+            }
+        }
+
+        private void OnScriptCoreWindowKeyDown(CoreWindow sender, KeyEventArgs args)
+        {
+            if (!Locator.VideoPlayerVm.IsScriptActive) return;
+
+            // Keyboard keys only; Gamepad* keys omitted to avoid double-firing with Gamepad polling
+            switch (args.VirtualKey)
+            {
+                case VirtualKey.H:
+                    ToggleScriptDebugHud();
+                    break;
+                case VirtualKey.Space:
+                case VirtualKey.Enter:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:A");
+                    break;
+                case VirtualKey.Escape:
+                case VirtualKey.B:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:B");
+                    break;
+                case VirtualKey.X:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:X");
+                    break;
+                case VirtualKey.Y:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:Y");
+                    break;
+                case VirtualKey.Up:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:DPadUp");
+                    break;
+                case VirtualKey.Down:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:DPadDown");
+                    break;
+                case VirtualKey.Left:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:DPadLeft");
+                    break;
+                case VirtualKey.Right:
+                    Locator.VideoPlayerVm.ActiveFsmEngine?.PostEvent("input:DPadRight");
+                    break;
+            }
+        }
+
+        private void OnScriptPositionChanged(long currentPosMs, long durationMs)
+        {
+            var curTs = TimeSpan.FromMilliseconds(currentPosMs);
+            var durTs = TimeSpan.FromMilliseconds(durationMs);
+
+            ScriptHudTimeCode.Text = $"Time: {curTs:mm\\:ss\\.fff} / {durTs:mm\\:ss\\.fff}";
+            ScriptHudMediaId.Text = $"Media: {Locator.VideoPlayerVm.ActiveVideoController?.CurrentMedia?.Id ?? "None"}";
+
+            if (durationMs > 0)
+            {
+                double pct = (double)currentPosMs / durationMs * 100.0;
+                ScriptHudPlaybackProgress.Value = Math.Max(0.0, Math.Min(100.0, pct));
+            }
+            else
+            {
+                ScriptHudPlaybackProgress.Value = 0;
+            }
+        }
+
+        private void OnScriptHudPromptChanged(string prompt)
+        {
+            if (string.IsNullOrWhiteSpace(prompt))
+            {
+                ScriptPromptContainer.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                ScriptPromptText.Text = prompt;
+                ScriptPromptContainer.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void OnScriptLogAdded(string logMessage)
+        {
+            _scriptLogItems.Add(logMessage);
+            if (_scriptLogItems.Count > 100)
+            {
+                _scriptLogItems.RemoveAt(0);
+            }
+            try
+            {
+                ScriptHudLogList.ScrollIntoView(_scriptLogItems[_scriptLogItems.Count - 1]);
+            }
+            catch { }
+        }
+
+        private void OnScriptStateUpdated()
+        {
+            UpdateFsmDisplay();
+            UpdateVariableDisplay();
+        }
+
+        private void UpdateFsmDisplay()
+        {
+            var ctx = Locator.VideoPlayerVm.ActiveStateContext;
+            if (ctx == null) return;
+            ScriptHudCurrentState.Text = $"State: {ctx.CurrentState}";
+            ScriptHudLastEvent.Text = $"Last Event: {ctx.LastEvent}";
+            ScriptHudActiveTimers.Text = $"Active Timers: {ctx.ActiveTimers.Count}";
+        }
+
+        private void UpdateVariableDisplay()
+        {
+            var ctx = Locator.VideoPlayerVm.ActiveStateContext;
+            if (ctx == null) return;
+            var sb = new StringBuilder();
+            foreach (var kvp in ctx.Variables)
+            {
+                sb.AppendLine($"{kvp.Key}: {kvp.Value}");
+            }
+            ScriptHudVariables.Text = sb.Length > 0 ? sb.ToString() : "(No variables)";
+        }
+
+        #endregion
     }
 }

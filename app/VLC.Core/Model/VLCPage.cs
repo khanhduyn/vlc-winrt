@@ -31,5 +31,6 @@
         MainPageXBOX,
         ExternalStorageInclude,
         ScriptPlayerPage,
+        ScriptSettings,
     }
 }

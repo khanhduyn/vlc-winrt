@@ -24,7 +24,13 @@ using Windows.UI.Core;
 using Windows.UI.ViewManagement;
 using Projection = libVLCX.Projection;
 using Windows.Foundation.Metadata;
+using System.Diagnostics;
 using Windows.Storage.Search;
+using Windows.UI.Xaml;
+using VLC.ScriptPlayer.Engine;
+using VLC.ScriptPlayer.Models;
+using VLC.ScriptPlayer.Playback;
+using VLC.ScriptPlayer.Storage;
 
 namespace VLC.ViewModels.VideoVM
 {
@@ -94,6 +100,9 @@ namespace VLC.ViewModels.VideoVM
         public ShowSubtitlesSettingsCommand ShowSubtitlesSettingsCommand { get; private set; } = new ShowSubtitlesSettingsCommand();
         public ShowAudioTracksSettingsCommand ShowAudioTracksSettingsCommand { get; private set; } = new ShowAudioTracksSettingsCommand();
         public ShowChaptersSettingsCommand ShowChaptersSettingsCommand { get; private set; } = new ShowChaptersSettingsCommand();
+        public ShowScriptSettingsCommand ShowScriptSettingsCommand { get; private set; } = new ShowScriptSettingsCommand();
+        public OpenScriptCommand OpenScriptCommand { get; private set; } = new OpenScriptCommand();
+        public ActionCommand UnloadScriptCommand { get; private set; }
         public bool IsLoadingSubtitle { get { return _isLoadingSubtitle; } set { SetProperty(ref _isLoadingSubtitle, value); } }
         public string LoadingSubtitleText { get { return _loadingSubtitleText; } set { SetProperty(ref _loadingSubtitleText, value); } }
         public ActionCommand PlayPauseCommand { get; } = new ActionCommand(() => Locator.MediaPlaybackViewModel.PlaybackService.Pause());
@@ -104,6 +113,102 @@ namespace VLC.ViewModels.VideoVM
         public ActionCommand IncreaseSpeedCommand { get; } = new ActionCommand(() => Locator.MediaPlaybackViewModel.ChangePlaybackSpeedRateCommand.Execute("faster"));
         public ActionCommand DecreaseSpeedCommand { get; } = new ActionCommand(() => Locator.MediaPlaybackViewModel.ChangePlaybackSpeedRateCommand.Execute("slower"));
         public ActionCommand ResetSpeedCommand { get; } = new ActionCommand(() => Locator.MediaPlaybackViewModel.ChangePlaybackSpeedRateCommand.Execute("reset"));
+
+        private ScriptConfig _loadedScript;
+        private StorageFile _loadedScriptFile;
+        private StorageFolder _loadedScriptFolder;
+        private bool _isScriptActive = false;
+        private bool _isScriptDebugHudVisible = false;
+        private bool _isScriptSwitchingMedia = false;
+
+        public ScriptConfig LoadedScript
+        {
+            get => _loadedScript;
+            private set => SetProperty(ref _loadedScript, value);
+        }
+
+        public StorageFile LoadedScriptFile
+        {
+            get => _loadedScriptFile;
+            private set => SetProperty(ref _loadedScriptFile, value);
+        }
+
+        public StorageFolder LoadedScriptFolder
+        {
+            get => _loadedScriptFolder;
+            private set => SetProperty(ref _loadedScriptFolder, value);
+        }
+
+        public bool HasLoadedScript => LoadedScript != null;
+
+        public string LoadedScriptDisplayName
+        {
+            get
+            {
+                if (LoadedScript == null) return "No script loaded";
+                var title = !string.IsNullOrWhiteSpace(LoadedScript.Title) ? LoadedScript.Title : "Untitled Script";
+                var fileName = LoadedScriptFile != null ? LoadedScriptFile.Name : "";
+                return !string.IsNullOrEmpty(fileName) ? $"{title} ({fileName})" : title;
+            }
+        }
+
+        public string ScriptStatusText
+        {
+            get
+            {
+                if (!HasLoadedScript) return "No script loaded";
+                return IsScriptActive ? "Active" : "Loaded (Inactive)";
+            }
+        }
+
+        public bool IsScriptActive
+        {
+            get => _isScriptActive;
+            set
+            {
+                if (_isScriptActive == value) return;
+                if (value)
+                {
+                    if (HasLoadedScript)
+                    {
+                        var _ = ActivateScriptAsync();
+                    }
+                }
+                else
+                {
+                    DeactivateScript();
+                }
+            }
+        }
+
+        public bool IsScriptDebugHudVisible
+        {
+            get => _isScriptDebugHudVisible;
+            set => SetProperty(ref _isScriptDebugHudVisible, value);
+        }
+
+        public bool IsScriptSwitchingMedia
+        {
+            get => _isScriptSwitchingMedia;
+            set => SetProperty(ref _isScriptSwitchingMedia, value);
+        }
+
+        private PlaybackServiceVideoController _scriptVideoController;
+        private CuePointTracker _scriptCueTracker;
+        private StateContext _scriptStateContext;
+        private ActionDispatcher _scriptActionDispatcher;
+        private FsmEngine _scriptFsmEngine;
+
+        public FsmEngine ActiveFsmEngine => _scriptFsmEngine;
+        public StateContext ActiveStateContext => _scriptStateContext;
+        public PlaybackServiceVideoController ActiveVideoController => _scriptVideoController;
+
+        public event Action<string> ScriptHudPromptChanged;
+        public event Action<string> ScriptLogAdded;
+        public event Action ScriptStateUpdated;
+        public event Action<long, long> ScriptPositionUpdated;
+        public event Action ScriptActivated;
+        public event Action ScriptDeactivated;
 
         #endregion
 
@@ -125,6 +230,7 @@ namespace VLC.ViewModels.VideoVM
         #region constructors
         public VideoPlayerVM()
         {
+            UnloadScriptCommand = new ActionCommand(UnloadScript);
             Locator.MediaPlaybackViewModel.PlaybackService.Playback_MediaSet += PlaybackService_Playback_MediaSet;
         }
 
@@ -166,6 +272,9 @@ namespace VLC.ViewModels.VideoVM
 
         public void OnNavigatedFrom()
         {
+            UnloadScript();
+            _lastAutoLoadedScriptVideoPath = null;
+
             if (Locator.MediaLibrary.ContinueIndexing != null && !Locator.MediaLibrary.ContinueIndexing.Task.IsCompleted)
             {
                 Locator.MediaLibrary.ContinueIndexing.TrySetResult(true);
@@ -361,6 +470,7 @@ namespace VLC.ViewModels.VideoVM
             if (video != null)
             {
                 await TryUseSubtitleFromFolder();
+                await TryLoadScriptFromFolderAsync();
 
                 var currentVideoTrackid = Locator.PlaybackService.VideotrackId;
                 if (currentVideoTrackid != -1)
@@ -371,6 +481,289 @@ namespace VLC.ViewModels.VideoVM
                 }
             }
         }
+
+        #region script handling methods
+
+        private string _lastAutoLoadedScriptVideoPath = null;
+
+        public async Task<bool> TryLoadScriptFromFolderAsync()
+        {
+            string videoPath;
+            if (CurrentVideo?.File != null)
+            {
+                videoPath = CurrentVideo.File.Path;
+            }
+            else if (!string.IsNullOrEmpty(CurrentVideo?.Path))
+            {
+                videoPath = CurrentVideo.Path;
+            }
+            else return false;
+
+            if (string.Equals(_lastAutoLoadedScriptVideoPath, videoPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            _lastAutoLoadedScriptVideoPath = videoPath;
+
+            UnloadScript();
+
+            string folderPath;
+            string fileNameWithoutExtension;
+            try
+            {
+                folderPath = System.IO.Path.GetDirectoryName(videoPath);
+                fileNameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(videoPath);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(fileNameWithoutExtension)) return false;
+
+            // 1. Try CurrentVideo.File.GetParentAsync()
+            try
+            {
+                if (CurrentVideo.File != null)
+                {
+                    var parent = await CurrentVideo.File.GetParentAsync();
+                    if (parent != null)
+                    {
+                        var scriptFile = await LocateScriptFile(parent, fileNameWithoutExtension);
+                        if (scriptFile != null)
+                        {
+                            await LoadScriptFileAsync(scriptFile, parent);
+                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // 2. Try StorageFolder.GetFolderFromPathAsync(folderPath)
+            try
+            {
+                if (!string.IsNullOrEmpty(folderPath))
+                {
+                    var folder = await StorageFolder.GetFolderFromPathAsync(folderPath);
+                    if (folder != null)
+                    {
+                        var scriptFile = await LocateScriptFile(folder, fileNameWithoutExtension);
+                        if (scriptFile != null)
+                        {
+                            await LoadScriptFileAsync(scriptFile, folder);
+                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // 3. Scan all removable devices
+            try
+            {
+                var removableRoot = KnownFolders.RemovableDevices;
+                var drives = await removableRoot.GetFoldersAsync();
+                foreach (var drive in drives)
+                {
+                    try
+                    {
+                        var scriptFolder = await LocateFolderRecursive(drive, folderPath);
+                        var searchFolder = scriptFolder ?? drive;
+                        var scriptFile = await LocateScriptFile(searchFolder, fileNameWithoutExtension);
+                        if (scriptFile != null)
+                        {
+                            await LoadScriptFileAsync(scriptFile, searchFolder);
+                            ToastHelper.Basic($"Script loaded (inactive): {LoadedScriptDisplayName}");
+                            return true;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        private async Task<StorageFile> LocateScriptFile(StorageFolder folder, string fileNameWithoutExtension)
+        {
+            if (folder == null || string.IsNullOrEmpty(fileNameWithoutExtension)) return null;
+            try
+            {
+                var item = await folder.TryGetItemAsync($"{fileNameWithoutExtension}.json");
+                if (item is StorageFile exactFile)
+                {
+                    return exactFile;
+                }
+
+                var queryResult = folder.CreateFileQueryWithOptions(new QueryOptions(CommonFileQuery.OrderByName, VLCFileExtensions.ScriptExtensions));
+                var files = await queryResult.GetFilesAsync();
+                return files.FirstOrDefault(f => f.DisplayName.Equals(fileNameWithoutExtension, StringComparison.OrdinalIgnoreCase)
+                                              || f.Name.Equals($"{fileNameWithoutExtension}.json", StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<StorageFolder> LocateFolderRecursive(StorageFolder startFolder, string targetFolderPath)
+        {
+            if (startFolder == null || string.IsNullOrEmpty(targetFolderPath)) return null;
+            try
+            {
+                if (string.Equals(startFolder.Path, targetFolderPath, StringComparison.OrdinalIgnoreCase))
+                    return startFolder;
+
+                var query = startFolder.CreateItemQuery();
+                query.ApplyNewQueryOptions(new QueryOptions(CommonFileQuery.DefaultQuery, VLCFileExtensions.ScriptExtensions));
+                var items = await query.GetItemsAsync();
+                return items.FirstOrDefault(i => i is StorageFolder && string.Equals(i.Path, targetFolderPath, StringComparison.OrdinalIgnoreCase)) as StorageFolder;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<bool> LoadScriptFileAsync(StorageFile file, StorageFolder parentFolder = null)
+        {
+            if (file == null) return false;
+
+            DeactivateScript();
+
+            try
+            {
+                var loader = new ScriptLoader();
+                var config = await loader.LoadFromFileAsync(file, parentFolder);
+                if (config == null || config.States == null)
+                {
+                    ToastHelper.Basic("Failed to load script: Invalid script configuration.");
+                    return false;
+                }
+
+                LoadedScript = config;
+                LoadedScriptFile = file;
+                LoadedScriptFolder = loader.CurrentScriptFolder ?? parentFolder;
+                _isScriptActive = false; // Always loaded inactive!
+
+                OnPropertyChanged(nameof(LoadedScript));
+                OnPropertyChanged(nameof(LoadedScriptFile));
+                OnPropertyChanged(nameof(LoadedScriptFolder));
+                OnPropertyChanged(nameof(HasLoadedScript));
+                OnPropertyChanged(nameof(LoadedScriptDisplayName));
+                OnPropertyChanged(nameof(ScriptStatusText));
+                OnPropertyChanged(nameof(IsScriptActive));
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to load script file: {ex.Message}");
+                ToastHelper.Basic($"Failed to load script: {ex.Message}");
+                return false;
+            }
+        }
+
+        public void UnloadScript()
+        {
+            DeactivateScript();
+            LoadedScript = null;
+            LoadedScriptFile = null;
+            LoadedScriptFolder = null;
+            _isScriptActive = false;
+
+            OnPropertyChanged(nameof(LoadedScript));
+            OnPropertyChanged(nameof(LoadedScriptFile));
+            OnPropertyChanged(nameof(LoadedScriptFolder));
+            OnPropertyChanged(nameof(HasLoadedScript));
+            OnPropertyChanged(nameof(LoadedScriptDisplayName));
+            OnPropertyChanged(nameof(ScriptStatusText));
+            OnPropertyChanged(nameof(IsScriptActive));
+        }
+
+        public async Task ActivateScriptAsync()
+        {
+            if (!HasLoadedScript) return;
+            if (_isScriptActive) return;
+
+            try
+            {
+                _scriptVideoController = new PlaybackServiceVideoController(Locator.PlaybackService, Window.Current?.Dispatcher);
+                _scriptVideoController.PositionChanged += OnScriptPositionChanged;
+
+                string videoPath = CurrentVideo?.File?.Path ?? CurrentVideo?.Path ?? "current";
+                string baseName = "current";
+                try
+                {
+                    baseName = System.IO.Path.GetFileNameWithoutExtension(videoPath);
+                }
+                catch { }
+
+                _scriptVideoController.AttachToCurrentPlayback(baseName, videoPath);
+
+                _scriptCueTracker = new CuePointTracker(_scriptVideoController);
+
+                _scriptStateContext = new StateContext(_scriptVideoController, _scriptCueTracker, LoadedScriptFolder);
+                _scriptStateContext.PromptChanged += (prompt) => ScriptHudPromptChanged?.Invoke(prompt);
+                _scriptStateContext.LogAdded += (log) => ScriptLogAdded?.Invoke(log);
+                _scriptStateContext.StateChanged += (state) => ScriptStateUpdated?.Invoke();
+
+                _scriptActionDispatcher = new ActionDispatcher(_scriptVideoController, _scriptStateContext);
+
+                _scriptFsmEngine = new FsmEngine(LoadedScript, _scriptStateContext, _scriptActionDispatcher, _scriptVideoController, _scriptCueTracker);
+
+                _isScriptActive = true;
+                OnPropertyChanged(nameof(IsScriptActive));
+                OnPropertyChanged(nameof(ScriptStatusText));
+
+                ScriptActivated?.Invoke();
+
+                await _scriptFsmEngine.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to activate script: {ex.Message}");
+                ToastHelper.Basic($"Failed to activate script: {ex.Message}");
+                DeactivateScript();
+            }
+        }
+
+        public void DeactivateScript()
+        {
+            if (!_isScriptActive && _scriptFsmEngine == null) return;
+
+            _scriptFsmEngine?.Detach();
+            _scriptFsmEngine = null;
+
+            _scriptStateContext?.ClearTimers();
+            _scriptStateContext = null;
+            _scriptActionDispatcher = null;
+
+            if (_scriptVideoController != null)
+            {
+                _scriptVideoController.PositionChanged -= OnScriptPositionChanged;
+                _scriptVideoController.Detach();
+                _scriptVideoController = null;
+            }
+            _scriptCueTracker = null;
+
+            _isScriptActive = false;
+            OnPropertyChanged(nameof(IsScriptActive));
+            OnPropertyChanged(nameof(ScriptStatusText));
+
+            ScriptDeactivated?.Invoke();
+        }
+
+        private void OnScriptPositionChanged(long pos, long dur)
+        {
+            ScriptPositionUpdated?.Invoke(pos, dur);
+        }
+
+        #endregion
 
         public bool Is3DVideo { get; private set; }
 

@@ -607,6 +607,10 @@ namespace VLC.Services.RunTime
             TileHelper.ClearTile();
         }
 
+        public long Length => _mediaPlayer != null ? _mediaPlayer.length() : 0;
+
+        public void SetPause(bool pause) => _mediaPlayer?.setPause(pause ? 1 : 0);
+
         public void Pause()
         {
             _mediaPlayer?.pause();
@@ -615,6 +619,55 @@ namespace VLC.Services.RunTime
         public void Play()
         {
             _mediaPlayer?.play();
+        }
+
+        public async Task PlayScriptMediaAsync(string mrl, FromType fromType, long? startMs, bool loop, int volume)
+        {
+            if (Instance == null)
+            {
+                await Initialize();
+            }
+            await PlayerInstanceReady.Task;
+
+            if (!PlayerInstanceReady.Task.Result)
+            {
+                LogHelper.Log($"Couldn't play script media {mrl} as VLC failed to init");
+                return;
+            }
+
+            CurrentMedia = new Media(Instance, mrl, fromType);
+            CurrentMedia.addOption(!Locator.SettingsVM.HardwareAccelerationEnabled ? ":avcodec-hw=none" : ":avcodec-hw=d3d11va");
+            if (DeviceHelper.GetDeviceType() == DeviceTypeEnum.Phone)
+                CurrentMedia.addOption(!Locator.SettingsVM.HardwareAccelerationEnabled ? ":avcodec-threads=0" : ":avcodec-threads=1");
+
+            if (startMs.HasValue && startMs.Value > 0)
+            {
+                double startSec = startMs.Value / 1000.0;
+                CurrentMedia.addOption(string.Format(System.Globalization.CultureInfo.InvariantCulture, ":start-time={0:F3}", startSec));
+            }
+
+            if (loop)
+            {
+                CurrentMedia.addOption(":input-repeat=65535");
+            }
+
+            if (_mediaPlayer == null)
+            {
+                InitializeMediaPlayer();
+            }
+            else
+            {
+                _mediaPlayer.setMedia(CurrentMedia);
+            }
+
+            PlayingType = PlayingType.Video;
+            _mediaPlayer.outputDeviceSet(AudioDeviceID);
+            if (volume >= 0)
+            {
+                _mediaPlayer.setVolume(volume);
+            }
+            SetEqualizer(Locator.SettingsVM.Equalizer);
+            _mediaPlayer.play();
         }
 
         public void SetEqualizer(VLCEqualizer vlcEq)

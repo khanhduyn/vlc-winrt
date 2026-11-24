@@ -58,7 +58,7 @@ namespace VLC.ScriptPlayer.Playback
             if (currentPosMs < _previousPositionMs - 500)
             {
                 var cuesToUnmark = _cues
-                    .Where(c => c.MediaId == activeMedia.Id && c.TimeMs > currentPosMs)
+                    .Where(c => MatchesMedia(c, activeMedia.Id) && c.TimeMs > currentPosMs)
                     .Select(c => c.Id)
                     .ToList();
 
@@ -75,7 +75,7 @@ namespace VLC.ScriptPlayer.Playback
             // Check cues for current media
             foreach (var cue in _cues)
             {
-                if (string.Equals(cue.MediaId, activeMedia.Id, StringComparison.OrdinalIgnoreCase))
+                if (MatchesMedia(cue, activeMedia.Id))
                 {
                     if (currentPosMs >= cue.TimeMs && !_firedCuesThisPass.Contains(cue.Id))
                     {
@@ -94,6 +94,14 @@ namespace VLC.ScriptPlayer.Playback
                     SegmentEnded?.Invoke(activeMedia.Id);
                 }
             }
+        }
+
+        private static bool MatchesMedia(CuePoint cue, string activeMediaId)
+        {
+            if (cue == null) return false;
+            if (string.IsNullOrEmpty(cue.MediaId) || cue.MediaId == "*" || string.Equals(cue.MediaId, "current", StringComparison.OrdinalIgnoreCase))
+                return true;
+            return string.Equals(cue.MediaId, activeMediaId, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

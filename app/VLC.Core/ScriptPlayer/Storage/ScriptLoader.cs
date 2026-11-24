@@ -138,6 +138,33 @@ namespace VLC.ScriptPlayer.Storage
             return null;
         }
 
+        /// <summary>
+        /// Loads a script directly from a StorageFile, validating structure and establishing base folder.
+        /// </summary>
+        public async Task<ScriptConfig> LoadFromFileAsync(StorageFile file, StorageFolder scriptFolder = null)
+        {
+            if (file == null) return null;
+            var config = await DeserializeFileAsync(file);
+            if (config == null || config.States == null)
+            {
+                throw new InvalidDataException("Invalid or empty script configuration");
+            }
+            CurrentScriptFolder = scriptFolder ?? await TryGetParentFolderAsync(file);
+            return config;
+        }
+
+        private static async Task<StorageFolder> TryGetParentFolderAsync(StorageFile file)
+        {
+            try
+            {
+                return await file.GetParentAsync();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private static async Task<ScriptConfig> DeserializeFileAsync(StorageFile file)
         {
             using (var stream = await file.OpenStreamForReadAsync())

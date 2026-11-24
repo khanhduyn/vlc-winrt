@@ -80,8 +80,10 @@
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\OpenAudioTracksSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\ShowChaptersSettings.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\OpenSubtitleCommand.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\OpenScriptCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\PlayVideoCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\ShowSubtitlesSettingsCommand.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\ShowScriptSettingsCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\StopVideoCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VideoPlayer\SurfaceZoomToggleCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Commands\VLCFileExplorer\GoUpperFolderCommand.cs" />
@@ -242,6 +244,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\IVideoController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\CuePointTracker.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\VlcVideoController.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Playback\PlaybackServiceVideoController.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Storage\ScriptLoader.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\StateContext.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScriptPlayer\Engine\RuleEvaluator.cs" />

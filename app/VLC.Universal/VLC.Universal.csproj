@@ -344,6 +344,9 @@
     <Compile Include="Views\VideoPages\VideoNowPlayingControls\SubtitlesSettings.xaml.cs">
       <DependentUpon>SubtitlesSettings.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\VideoPages\VideoNowPlayingControls\ScriptSettings.xaml.cs">
+      <DependentUpon>ScriptSettings.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\VideoPages\VideoNowPlayingControls\VideoPlayerOptionsPanel.xaml.cs">
       <DependentUpon>VideoPlayerOptionsPanel.xaml</DependentUpon>
     </Compile>
@@ -1678,6 +1681,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Views\VideoPages\VideoNowPlayingControls\SubtitlesSettings.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Views\VideoPages\VideoNowPlayingControls\ScriptSettings.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>

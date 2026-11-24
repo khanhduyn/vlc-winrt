@@ -413,6 +413,11 @@ namespace VLC.ViewModels
                 if (IsPlaying && PlaybackService.PlayingType == PlayingType.Video)
                     OpenSubtitleCommand.Execute(file);
             }
+            else if (fileType == VLCFileExtensions.VLCFileType.Script)
+            {
+                if (IsPlaying && PlaybackService.PlayingType == PlayingType.Video)
+                    Locator.VideoPlayerVm.OpenScriptCommand.Execute(file);
+            }
         }
 
         /// <summary>
@@ -595,6 +600,8 @@ namespace VLC.ViewModels
 
             await DispatchHelper.InvokeInUIThread(CoreDispatcherPriority.Low, () =>
             {
+                if (Locator.VideoPlayerVm.IsScriptActive) return;
+
                 if (PlaybackService.PlayingType == PlayingType.Video)
                 {
                     App.RootPage.StopCompositionAnimationOnSwapChain();
